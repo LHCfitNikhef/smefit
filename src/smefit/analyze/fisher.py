@@ -62,10 +62,30 @@ class FisherCalculator:
 
     """
 
-    def __init__(self, coefficients, datasets, compute_quad):
+    def __init__(self, coefficients, datasets, compute_quad, rgemat=None):
         self.coefficients = coefficients
         self.free_parameters = self.coefficients.free_parameters.index
         self.datasets = datasets
+        self.rgemat = rgemat
+
+        # find name of the operators that are constrained
+        self.constrained_coeffs = [
+            name for name in self.coefficients.name if name not in self.free_parameters
+        ]
+        self.constrained_coeffs_idx = [
+            idx
+            for idx, name in enumerate(self.coefficients.name)
+            if name not in self.free_parameters
+        ]
+
+        # remove the constrained coefficient from the rgemat both in axis 1 and 2
+        if rgemat is not None:
+            self.rgemat = np.delete(
+                self.rgemat, [idx for idx in self.constrained_coeffs_idx], axis=1
+            )
+            self.rgemat = np.delete(
+                self.rgemat, [idx for idx in self.constrained_coeffs_idx], axis=2
+            )
 
         # update eft corrections with the constraints
         if compute_quad:
@@ -77,6 +97,9 @@ class FisherCalculator:
             self.new_LinearCorrections = impose_constrain(
                 self.datasets, self.coefficients
             )
+            self.new_LinearCorrectionsNoRGE = impose_constrain(
+                self.datasets, self.coefficients, norge=True
+            ).T
 
         self.lin_fisher = None
         self.quad_fisher = None
@@ -95,6 +118,29 @@ class FisherCalculator:
             cnt += ndat
         self.lin_fisher = pd.DataFrame(
             fisher_tab, index=self.datasets.ExpNames, columns=self.free_parameters
+        )
+
+    def compute_wc_fisher(self):
+        fisher_tab = []
+        operators = [
+            name
+            for name in self.datasets.OperatorsNames
+            if name not in self.constrained_coeffs
+        ]
+
+        for i, op in enumerate(operators):
+            idxs = slice(i, i + 1)
+            sliced_rgemat = self.rgemat[:, idxs, :]
+            sigma = np.einsum(
+                "ij, ijk -> ik",
+                self.new_LinearCorrectionsNoRGE[:, idxs],
+                sliced_rgemat,
+            )
+            fisher_row = np.diag(sigma.T @ self.datasets.InvCovMat @ sigma)
+            fisher_tab.append(fisher_row)
+
+        self.wc_fisher = pd.DataFrame(
+            fisher_tab, index=operators, columns=self.free_parameters
         )
 
     def compute_quadratic(self, posterior_df, smeft_predictions):
@@ -533,10 +579,13 @@ class FisherCalculator:
         figsize=(11, 15),
         labels=None,
         column_names=None,
+        wc_fisher=False,
+        wc_to_latex=None,
     ):
-
         fisher_df = self.summary_table if summary_only else self.lin_fisher
         quad_fisher_df = self.summary_HOtable if summary_only else self.quad_fisher
+        if wc_fisher:
+            wc_fisher_df = self.wc_fisher
 
         if other is not None:
 
@@ -570,7 +619,6 @@ class FisherCalculator:
                 quad_fisher_dfs = [
                     quad_fisher_df[latex_names.index.get_level_values(level=1)]
                 ]
-
         # reshuffle column name ordering
         if column_names is not None:
             custom_ordering = [list(column.keys())[0] for column in column_names]
@@ -595,35 +643,60 @@ class FisherCalculator:
         else:
             ax = plt.gca()
 
-        self.plot_values(ax, fisher_dfs, cmap, norm, labels)
+        if wc_fisher:
+            wc_fisher_dfs = [
+                wc_fisher_df.loc[
+                    latex_names.index.get_level_values(level=1),
+                    latex_names.index.get_level_values(level=1),
+                ]
+            ]
 
-        self.set_ticks(
-            ax,
-            np.arange(fisher_dfs[0].shape[1]),
-            np.arange(fisher_dfs[0].shape[0]),
-            latex_names,
-            x_labels,
-        )
-        ax.set_title(r"\rm Linear", fontsize=20, y=-0.08)
-        cax1 = make_axes_locatable(ax).append_axes("right", size="5%", pad=0.5)
-        colour_bar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax1)
-
-        if quad_fisher_df is not None:
-            ax = fig.add_subplot(122)
-            self.plot_values(ax, quad_fisher_dfs, cmap, norm, labels)
+            self.plot_values(ax, wc_fisher_dfs, cmap, norm)
 
             self.set_ticks(
                 ax,
-                np.arange(quad_fisher_dfs[0].shape[1]),
-                np.arange(quad_fisher_dfs[0].shape[0]),
+                np.arange(wc_fisher_df.shape[1]),
+                np.arange(wc_fisher_df.shape[0]),
                 latex_names,
-                x_labels,
+                [wc_to_latex[op] for op in wc_fisher_dfs[0].index],
             )
-            ax.set_title(r"\rm Quadratic", fontsize=20, y=-0.08)
+            ax.set_title(r"\rm RGE Fisher Information", fontsize=25)
             cax1 = make_axes_locatable(ax).append_axes("right", size="5%", pad=0.5)
             colour_bar = fig.colorbar(
                 mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax1
             )
+        else:
+            self.plot_values(ax, fisher_dfs, cmap, norm)
+
+            self.set_ticks(
+                ax,
+                np.arange(fisher_dfs[0].shape[1]),
+                np.arange(fisher_dfs[0].shape[0]),
+                latex_names,
+                x_labels,
+            )
+            ax.set_title(r"\rm Linear", fontsize=20, y=-0.08)
+            cax1 = make_axes_locatable(ax).append_axes("right", size="5%", pad=0.5)
+            colour_bar = fig.colorbar(
+                mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax1
+            )
+
+            if quad_fisher_df is not None:
+                ax = fig.add_subplot(122)
+                self.plot_values(ax, quad_fisher_dfs, cmap, norm)
+
+                self.set_ticks(
+                    ax,
+                    np.arange(quad_fisher_dfs[0].shape[1]),
+                    np.arange(quad_fisher_dfs[0].shape[0]),
+                    latex_names,
+                    x_labels,
+                )
+                ax.set_title(r"\rm Quadratic", fontsize=20, y=-0.08)
+                cax1 = make_axes_locatable(ax).append_axes("right", size="5%", pad=0.5)
+                colour_bar = fig.colorbar(
+                    mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax1
+                )
 
         fig.subplots_adjust(top=0.9)
 

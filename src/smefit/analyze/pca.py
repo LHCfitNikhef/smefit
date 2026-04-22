@@ -150,7 +150,7 @@ def make_sym_matrix(vals, n_op):
     return m
 
 
-def impose_constrain(dataset, coefficients, update_quad=False):
+def impose_constrain(dataset, coefficients, update_quad=False, norge=False):
     """Propagate coefficient constraint into the theory tables.
 
     Note: only linear contraints are allowed in this method.
@@ -187,7 +187,14 @@ def impose_constrain(dataset, coefficients, update_quad=False):
         temp_coeffs.set_constraints()
 
         # update linear corrections
-        new_linear_corrections.append(temp_coeffs.value @ dataset.LinearCorrections.T)
+        if norge:
+            new_linear_corrections.append(
+                temp_coeffs.value @ dataset.LinearCorrectionsNoRGE.T
+            )
+        else:
+            new_linear_corrections.append(
+                temp_coeffs.value @ dataset.LinearCorrections.T
+            )
 
         # update quadratic corrections, this will include some double counting in the mixed corrections
         if update_quad:

@@ -79,6 +79,12 @@ class Report:
         self.data_info = self._load_grouped_data_info(report_config["data_info"])
         # Loads coefficients grouped with latex name
         self.coeff_info = self._load_grouped_coeff_info(report_config["coeff_info"])
+
+        self.coeff_to_latex = {}
+        for _, entries in report_config["coeff_info"].items():
+            for val in entries:
+                self.coeff_to_latex[val[0]] = val[1]
+
         self.html_index = ""
         self.html_content = ""
 
@@ -525,10 +531,16 @@ class Report:
         fishers = {}
         for fit in fit_list:
             compute_quad = fit.config["use_quad"]
-            fisher_cal = FisherCalculator(fit.coefficients, fit.datasets, compute_quad)
+            fisher_cal = FisherCalculator(
+                fit.coefficients, fit.datasets, compute_quad, fit.rgemat
+            )
             fisher_cal.compute_linear()
+            fisher_cal.compute_wc_fisher()
             fisher_cal.lin_fisher = fisher_cal.normalize(
                 fisher_cal.lin_fisher, norm=norm, log=log
+            )
+            fisher_cal.wc_fisher = fisher_cal.normalize(
+                fisher_cal.wc_fisher, norm=norm, log=log
             )
             fisher_cal.summary_table = fisher_cal.groupby_data(
                 fisher_cal.lin_fisher, self.data_info, norm, log
@@ -562,6 +574,8 @@ class Report:
                     self.coeff_info,
                     f"{self.report}/fisher_heatmap_{fit.name}",
                     title=title,
+                    wc_fisher=True,
+                    wc_to_latex=self.coeff_to_latex,
                     **fit_plot,
                 )
                 figs_list.append(f"fisher_heatmap_{fit.name}")

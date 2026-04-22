@@ -22,6 +22,7 @@ DataTuple = namedtuple(
         "SMTheory",
         "OperatorsNames",
         "LinearCorrections",
+        "LinearCorrectionsNoRGE",
         "QuadraticCorrections",
         "ExpNames",
         "NdataExp",
@@ -751,6 +752,10 @@ def load_datasets(
         lin_corr_list, n_data_tot, sorted_keys, rgemat
     )
 
+    lin_corr_values_norge = construct_corrections_matrix_linear(
+        lin_corr_list, n_data_tot, sorted_keys
+    )
+
     if use_quad:
         quad_corr_values = construct_corrections_matrix_quadratic(
             quad_corr_list, n_data_tot, sorted_keys, rgemat
@@ -784,6 +789,7 @@ def load_datasets(
         np.array(sm_theory),
         sorted_keys,
         lin_corr_values,
+        lin_corr_values_norge,
         quad_corr_values,
         np.array(exp_name),
         np.array(n_data_exp),
