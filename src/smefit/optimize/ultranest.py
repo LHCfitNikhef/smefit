@@ -340,7 +340,7 @@ class USOptimizer(Optimizer):
         return all_params
 
     @partial(jax.jit, static_argnames=["self"])
-    def gaussian_loglikelihood(self, params):
+    def gaussian_loglikelihood_jit(self, params):
         """Multi gaussian log likelihood function.
 
         Parameters
@@ -357,6 +357,38 @@ class USOptimizer(Optimizer):
         all_params = self.produce_all_params(params)
 
         return -0.5 * self.chi2_func_ns(all_params)
+
+    def gaussian_loglikelihood(self, params):
+        """Gaussian log likelihood wrapper.
+
+        This keeps the JIT path for pure SMEFiT χ², while allowing external
+        likelihoods (e.g. smelli) to run in eager mode.
+        """
+
+        if self.chi2_ext is None:
+            return self.gaussian_loglikelihood_jit(params)
+
+        all_params = self.produce_all_params(params)
+        return -0.5 * self.chi2_func_ext_ns(all_params)
+
+    def chi2_func_ext_ns(self, params):
+        """Compatibility χ² path for non-JAX external likelihood contributions."""
+        if self.loaded_datasets is not None:
+            chi2_tot = chi2.compute_chi2(
+                self.loaded_datasets,
+                params,
+                self.use_quad,
+                self.use_multiplicative_prescription,
+                use_replica=False,
+            )
+        else:
+            chi2_tot = 0
+
+        for chi2_ext in self.chi2_ext:
+            chi2_ext_i = chi2_ext(params)
+            chi2_tot += chi2_ext_i
+
+        return chi2_tot
 
     @partial(jax.jit, static_argnames=["self"])
     def flat_prior(self, hypercube):
@@ -383,12 +415,13 @@ class USOptimizer(Optimizer):
         if self.store_raw:
             log_dir = self.results_path / "ultranest_log"
 
-        if self.vectorized:
+        if self.vectorized and self.chi2_ext is None:
             loglikelihood = jax.vmap(self.gaussian_loglikelihood)
             flat_prior = jax.vmap(self.flat_prior)
         else:
             loglikelihood = self.gaussian_loglikelihood
             flat_prior = self.flat_prior
+        ns_vectorized = self.vectorized and self.chi2_ext is None
 
         _logger.info(f"Running fit with backend: {jbackend.get_backend().platform}")
         t1 = time.time()
@@ -398,7 +431,7 @@ class USOptimizer(Optimizer):
             flat_prior,
             log_dir=log_dir,
             resume=True,
-            vectorized=self.vectorized,
+            vectorized=ns_vectorized,
         )
         if self.npar > 10:
             # set up step sampler. Here, we use a differential evolution slice sampler:
