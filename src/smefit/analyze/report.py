@@ -68,6 +68,7 @@ class Report:
                 fit.load_datasets()
 
             self.fits.append(fit)
+
         self.fits = np.array(self.fits)
 
         # Get names of datasets for each fit
@@ -159,7 +160,13 @@ class Report:
             tables=summary.fit_settings(),
         )
 
-    def chi2(self, table=True, plot_experiment=None, plot_distribution=None):
+    def chi2(
+        self,
+        table=True,
+        plot_experiment=None,
+        plot_distribution=None,
+        table_external_chi2=None,
+    ):
         r""":math:`\chi^2` table and plots runner.
 
         Parameters
@@ -180,6 +187,7 @@ class Report:
         chi2_dict = {}
         chi2_dict_group = {}
         chi2_replica = {}
+        ext_chi2_dict = {}
         for fit in self.fits:
             # This computes the chi2 by taking the mean of the replicas
             _, chi2_total_rep = chi2_cal.compute(
@@ -195,8 +203,13 @@ class Report:
             chi2_dict[fit.label] = chi2_cal.add_normalized_chi2(chi2_df_best)
             chi2_dict_group[fit.label] = chi2_cal.group_chi2_df(chi2_df_best)
 
+            if table_external_chi2:
+                ext_chi2_dict[fit.label] = chi2_cal.compute_ext_chi2(
+                    fit.external_chi2, fit.best_fit
+                )
+
         if table:
-            lines = chi2_cal.write(chi2_dict, chi2_dict_group)
+            lines = chi2_cal.write(chi2_dict, chi2_dict_group, ext_chi2_dict)
             compile_tex(self.report, lines, "chi2_tables")
             links_list = [("chi2_tables", "Tables")]
 

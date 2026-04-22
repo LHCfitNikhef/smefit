@@ -12,6 +12,7 @@ from smefit.rge.rge import load_rge_matrix
 
 from .coefficients import CoefficientManager
 from .compute_theory import make_predictions
+from .external_chi2 import load_external_chi2
 from .loader import load_datasets
 
 _logger = log.logging.getLogger(__name__)
@@ -61,6 +62,7 @@ class FitManager:
         self.results = None
         self.datasets = None
         self.rgemat = None
+        self.external_chi2 = None
 
     def __repr__(self):
         return self.name
@@ -164,6 +166,20 @@ class FitManager:
             self.config.get("external_chi2", False),
             rgemat=self.rgemat,
         )
+
+        external_chi2_dict = self.config.get("external_chi2", None)
+        self.external_chi2 = (
+            load_external_chi2(
+                external_chi2_dict, self.coefficients, self.config.get("rge", None)
+            )
+            if external_chi2_dict
+            else None
+        )
+
+    @property
+    def best_fit(self):
+        """Best fit value for the Wilson coefficients."""
+        return self.results["best_fit_point"].iloc[0, :]
 
     @property
     def smeft_predictions(self):

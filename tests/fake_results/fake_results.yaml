@@ -12,6 +12,9 @@ theory_path:  ./tests/fake_data
 use_quad: False
 use_theory_covmat: True
 
+external_chi2:
+  ExternalChi2:
+    path: ./tests/fake_external_chi2/test_ext_chi2.py
 
 # Datasets to include
 datasets:
