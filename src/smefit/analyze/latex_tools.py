@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import pathlib
 import subprocess
 
@@ -84,7 +85,9 @@ def run_pdflatex(report, filename):
         f"pdflatex -halt-on-error -output-directory {report} {filename}.tex > {report}/pdflatex.log",
         shell=True,
     )
-    subprocess.call(f"rm {report}/*.log {report}/*.aux {report}/*.out", shell=True)
+    for ext in ["*.log", "*.aux", "*.out"]:
+        for f in report.glob(ext):
+            os.remove(f)
 
 
 def compile_tex(report, L, filename):

@@ -106,10 +106,14 @@ def run_htlatex(report_path, tex_file):
     new_style = report_path.joinpath("style.css")
     shutil.copyfile(style_css, new_style)
     # title = tex_file.stem.replace("_", " ")
-    subprocess.call(
-        f"pandoc {tex_file} --standalone --mathjax --output {tex_file.with_suffix('.html')} --metadata title=' ' -c {new_style.stem}.css",
-        shell=True,
-    )
+    subprocess.call([
+    "pandoc", str(tex_file),
+    "--standalone",
+    "--mathjax",
+    "--output", str(tex_file.with_suffix('.html')),
+    "--metadata", "title= ",
+    "-c", f"{new_style.stem}.css",
+    ])
 
 
 def dump_html_index(html_report, html_index, report_path, report_title):

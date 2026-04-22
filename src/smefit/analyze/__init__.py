@@ -2,7 +2,8 @@
 import pathlib
 import shutil
 import subprocess
-
+import sys
+import os
 import yaml
 from matplotlib import rc, use
 
@@ -69,14 +70,17 @@ def run_report(report_card_file):
     # Move all files to a meta folder
     meta_path = pathlib.Path(f"{report_folder}/meta").absolute()
     meta_path.mkdir()
-    subprocess.call(f"mv {report_folder}/*.* {meta_path}", shell=True)
+    for f in report_folder.glob("*.*"):
+        shutil.move(str(f), meta_path)
 
     # Combine PDF files together into raw pdf report
-    subprocess.call(
-        f"gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite \
-                -sOutputFile={report_folder}/report_{report_name}.pdf `ls -rt {meta_path}/*.pdf`",
-        shell=True,
-    )
+    pdf_files = sorted(meta_path.glob("*.pdf"), key=os.path.getmtime)
+    gs_cmd = "gswin64c" if sys.platform == "win32" else "gs"
+    subprocess.call([
+        gs_cmd, "-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=pdfwrite",
+        f"-sOutputFile={report_folder}/report_{report_name}.pdf",
+        *[str(f) for f in pdf_files],
+        ])
 
     # dump html index
     dump_html_index(
