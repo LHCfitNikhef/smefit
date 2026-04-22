@@ -115,6 +115,7 @@ coefficients_plots:
 
   show_only: Null # list of operator to be displayed, default is all (Null)
   hide_dofs: Null # list of operator not to displayed, default is Null
+  ci_type: "eti" # type of credible intervals to use: eti, hdi or hdi_mono. eti is the default choice.
 
   # emptry or list of operator per fit which have degenerated solution
   # (to be used only in qudtatic fits)
@@ -176,6 +177,18 @@ fisher:
     together: ["fit_1", "fit_2"] # list of result IDs to be plotted together
 
 ```
+
+The option `ci_type` within the `coefficients_plots` category deserves further explanation.
+This option selects the kind of Credible Interval (C. I.) to be used in the plots and tables.
+Selecting `eti` means using Equally-Tailed Intervals (ETIs) computed based on quantiles of
+the posterior. This is the default option and recommended for cases with symmetrical Gaussian-like
+posteriors. The option `hdi` allows to use Highest Density Intervals (HDIs), which are recommended
+for skewed posteriors, like the ones that appear when fitting some UV models. This HDIs naturally
+support multimodal distributions, case in which the C.I. tends to be the union of disjoint intervals.
+This option is more sensitive to numerical precision, hence some strange results can be found in
+fits with small samples. If the presence of disjoint intervals is an issue but still one wants to
+use the HDIs, one can select `hdi_mono` which forces the HDI algorithm to report a single interval
+as the C.I.
 
 Finally the user has to specify two dictionaries where the informaions about
 Wilson coefficients and datasets entering the analysis are reporte are reported.

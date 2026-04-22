@@ -227,6 +227,7 @@ class Report:
         logo=True,
         table=None,
         double_solution=None,
+        ci_type="eti",
     ):
         """Coefficients plots and table runner.
 
@@ -248,6 +249,8 @@ class Report:
             kwarg the latex confidence level table per coefficient or None
         double_solution: dict
             operator with double solution per fit
+        ci_type: str
+            type of confidence interval to compute, either 'eti', 'hdi' or 'hdi_mono'
 
         """
         links_list = None
@@ -280,7 +283,7 @@ class Report:
 
         if scatter_plot is not None:
             _logger.info("Plotting : Central values and Confidence Level bounds")
-            coeff_plt.plot_coeffs(bounds_dict, **scatter_plot)
+            coeff_plt.plot_coeffs(bounds_dict, **scatter_plot, ci_type=ci_type)
             figs_list.append("coefficient_central")
 
         # when we plot the 95% CL we show the 95% CL for null solutions.
@@ -290,14 +293,31 @@ class Report:
             bar_cl = confidence_level_bar["confidence_level"]
             confidence_level_bar.pop("confidence_level")
             zero_sol = 0
-            coeff_plt.plot_coeffs_bar(
-                {
-                    name: -bound_df.loc[zero_sol, f"low{bar_cl}"]
-                    + bound_df.loc[zero_sol, f"high{bar_cl}"]
-                    for name, bound_df in bounds_dict.items()
-                },
-                **confidence_level_bar,
-            )
+            if ci_type == "hdi":
+                coeff_plt.plot_coeffs_bar(
+                    {
+                        name: bound_df.loc[zero_sol, f"hdi_{bar_cl}"]
+                        for name, bound_df in bounds_dict.items()
+                    },
+                    **confidence_level_bar,
+                )
+            elif ci_type == "hdi_mono":
+                coeff_plt.plot_coeffs_bar(
+                    {
+                        name: bound_df.loc[zero_sol, f"hdi_mono_{bar_cl}"]
+                        for name, bound_df in bounds_dict.items()
+                    },
+                    **confidence_level_bar,
+                )
+            else:
+                coeff_plt.plot_coeffs_bar(
+                    {
+                        name: -bound_df.loc[zero_sol, f"low{bar_cl}"]
+                        + bound_df.loc[zero_sol, f"high{bar_cl}"]
+                        for name, bound_df in bounds_dict.items()
+                    },
+                    **confidence_level_bar,
+                )
             figs_list.append("coefficient_bar")
 
         # when we plot the 95% CL we show the 95% CL for null solutions.
@@ -305,9 +325,12 @@ class Report:
         if pull_bar is not None:
             _logger.info("Plotting : Pull ")
             zero_sol = 0
+            string_to_find = (
+                "pull_hdi" if (ci_type == "hdi_mono" or ci_type == "hdi") else "pull"
+            )
             coeff_plt.plot_pull(
                 {
-                    name: bound_df.loc[zero_sol, "pull"]
+                    name: bound_df.loc[zero_sol, string_to_find]
                     for name, bound_df in bounds_dict.items()
                 },
                 **pull_bar,
@@ -322,30 +345,32 @@ class Report:
 
             spider_bounds = {}
             for name, bound_df in bounds_dict.items():
-                dbl_solution = bound_df.index.get_level_values(0)
+                # dbl_solution = bound_df.index.get_level_values(0)
                 # if dbl solution requested, add the confidence intervals, otherwise just
                 # use the sum of the hdi intervals
-                if 1 in dbl_solution:
-                    dbl_op = double_solution.get(fit.name, None)
-                    idx = [
-                        np.argwhere(
-                            self.coeff_info.index.get_level_values(1) == op
-                        ).flatten()[0]
-                        for op in dbl_op
-                    ]
-                    bound_df_dbl = bound_df.iloc[:, idx]
+                # if 1 in dbl_solution:
+                #    dbl_op = double_solution.get(fit.name, None)
+                #    idx = [
+                #        np.argwhere(
+                #            self.coeff_info.index.get_level_values(1) == op
+                #        ).flatten()[0]
+                #        for op in dbl_op
+                #    ]
+                #    bound_df_dbl = bound_df.iloc[:, idx]
+                #    width_0 = bound_df_dbl.loc[0, f"hdi_{spider_cl}"]
+                #    width_1 = bound_df_dbl.loc[1, f"hdi_{spider_cl}"]
+                #    width_tot = width_0 + width_1
 
-                    width_0 = bound_df_dbl.loc[0, f"hdi_{spider_cl}"]
-                    width_1 = bound_df_dbl.loc[1, f"hdi_{spider_cl}"]
-                    width_tot = width_0 + width_1
+                # update bound df
+                #    bound_df.loc[0, f"hdi_{spider_cl}"].iloc[idx] = width_tot
 
-                    # update bound df
-                    bound_df.loc[0, f"hdi_{spider_cl}"].iloc[idx] = width_tot
-
+                #    spider_bounds[name] = bound_df.loc[0, f"hdi_{spider_cl}"]
+                if ci_type == "hdi":
                     spider_bounds[name] = bound_df.loc[0, f"hdi_{spider_cl}"]
-
+                elif ci_type == "hdi_mono":
+                    spider_bounds[name] = bound_df.loc[0, f"hdi_mono_{spider_cl}"]
                 else:
-                    spider_bounds[name] = bound_df.loc[0, f"hdi_{spider_cl}"]
+                    spider_bounds[name] = bound_df.loc[0, f"mean_err{spider_cl}"] * 2.0
 
             coeff_plt.plot_spider(
                 spider_bounds,
@@ -375,7 +400,7 @@ class Report:
 
         if table is not None:
             _logger.info("Writing : Confidence level table")
-            lines = coeff_plt.write_cl_table(bounds_dict, **table)
+            lines = coeff_plt.write_cl_table(bounds_dict, **table, ci_type=ci_type)
             compile_tex(self.report, lines, "coefficients_table")
             links_list = [("coefficients_table", "CL table")]
 
