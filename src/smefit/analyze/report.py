@@ -4,7 +4,9 @@ import pathlib
 
 import numpy as np
 import pandas as pd
+import yaml
 
+from ..coefficients import CoefficientManager
 from ..fit_manager import FitManager
 from ..log import logging
 from .chi2_utils import Chi2tableCalculator
@@ -142,6 +144,80 @@ class Report:
             title, links=links, figs=figs, dataFrame=tables
         )
 
+    @staticmethod
+    def _compute_closure_truth_from_coeff_config(coeff_cfg, coeff_names):
+        """Compute closure-truth Wilson coefficients from a coefficient config."""
+        fit_truth = {coeff_name: 0.0 for coeff_name in coeff_names}
+        if not coeff_cfg:
+            return fit_truth
+
+        coefficients = CoefficientManager.from_dict(copy.deepcopy(coeff_cfg))
+        if not coefficients.free_parameters.empty:
+            # Free parameters have no closure-truth value by construction.
+            coefficients.set_free_parameters(
+                np.zeros(coefficients.free_parameters.shape[0], dtype=float)
+            )
+        coefficients.set_constraints()
+
+        coeff_set = set(coefficients.name)
+        for coeff_name in coeff_names:
+            if coeff_name not in coeff_set:
+                continue
+            coeff_entry = coeff_cfg.get(coeff_name, {})
+            if isinstance(coeff_entry, (int, float, np.floating)):
+                fit_truth[coeff_name] = float(coeff_entry)
+            elif isinstance(coeff_entry, dict) and (
+                "value" in coeff_entry or "constrain" in coeff_entry
+            ):
+                fit_truth[coeff_name] = float(coefficients[coeff_name]["value"])
+        return fit_truth
+
+    def _load_closure_truth_points_from_runcards(
+        self, closure_truth_runcards, coeff_names
+    ):
+        """Load closure-truth values from one or more projection/run runcards."""
+        if isinstance(closure_truth_runcards, dict):
+            runcard_paths = []
+            for fit in self.fits:
+                fit_runcard = closure_truth_runcards.get(fit.name, None)
+                if fit_runcard is None:
+                    raise ValueError(
+                        "closure_truth_runcards is missing an entry for "
+                        f"result_ID '{fit.name}'."
+                    )
+                runcard_paths.append(fit_runcard)
+        elif isinstance(closure_truth_runcards, (str, pathlib.Path)):
+            runcard_paths = [closure_truth_runcards for _ in self.fits]
+        else:
+            runcard_paths = list(closure_truth_runcards)
+            if len(runcard_paths) == 1 and len(self.fits) > 1:
+                runcard_paths = [runcard_paths[0] for _ in self.fits]
+            elif len(runcard_paths) != len(self.fits):
+                raise ValueError(
+                    "closure_truth_runcards must have either 1 entry or one entry per "
+                    f"fit ({len(self.fits)}). Got {len(runcard_paths)} entries."
+                )
+
+        closure_truth_points = []
+        for runcard in runcard_paths:
+            runcard_path = pathlib.Path(runcard).expanduser()
+            with open(runcard_path, encoding="utf-8") as f:
+                runcard_config = yaml.safe_load(f)
+            coeff_cfg = runcard_config.get("coefficients", {})
+            closure_truth_points.append(
+                self._compute_closure_truth_from_coeff_config(coeff_cfg, coeff_names)
+            )
+        return closure_truth_points
+
+    def _load_closure_truth_points_from_fit_configs(self, coeff_names):
+        closure_truth_points = []
+        for fit in self.fits:
+            coeff_cfg = fit.config.get("coefficients", {})
+            closure_truth_points.append(
+                self._compute_closure_truth_from_coeff_config(coeff_cfg, coeff_names)
+            )
+        return closure_truth_points
+
     def summary(self):
         """Summary Table runner."""
         summary = SummaryWriter(self.fits, self.data_info, self.coeff_info)
@@ -244,6 +320,11 @@ class Report:
             kwarg scatter plot or None
         posterior_histograms: bool
             if True plot the posterior distribution for each coefficient
+            Additional supported keys in the `posterior_histograms` block:
+            - closure_truth_points: explicit list of dict values per fit.
+            - closure_truth_runcards: path/list/dict to projection (or run) runcard(s)
+              used to generate closure pseudo-data. Values are evaluated from the
+              `coefficients` block, including constrained relations.
         table: None, dict
             kwarg the latex confidence level table per coefficient or None
         double_solution: dict
@@ -365,10 +446,29 @@ class Report:
                 for fit in self.fits
             ]
             posterior_histograms["disjointed_lists"] = disjointed_lists
+            closure_truth_points = posterior_histograms.pop(
+                "closure_truth_points", None
+            )
+            closure_truth_runcards = posterior_histograms.pop(
+                "closure_truth_runcards", None
+            )
+            if closure_truth_points is None:
+                coeff_names = coeff_plt.coeff_info.index.get_level_values(1)
+                if closure_truth_runcards is not None:
+                    closure_truth_points = (
+                        self._load_closure_truth_points_from_runcards(
+                            closure_truth_runcards, coeff_names
+                        )
+                    )
+                else:
+                    closure_truth_points = (
+                        self._load_closure_truth_points_from_fit_configs(coeff_names)
+                    )
 
             coeff_plt.plot_posteriors(
                 [fit.results["samples"] for fit in self.fits],
                 labels=[fit.label for fit in self.fits],
+                closure_truth_points=closure_truth_points,
                 **posterior_histograms,
             )
             figs_list.append("coefficient_histo")

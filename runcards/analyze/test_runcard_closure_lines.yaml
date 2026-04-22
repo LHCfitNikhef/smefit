@@ -1,0 +1,30 @@
+name: "Report_test_closure_lines"
+title: "Closure Line Test"
+
+result_IDs: [SM_G23]
+fit_labels: [SM G23]
+
+report_path: /data/theorie/wtelman/reports/benchmark
+result_path: /data/theorie/wtelman/results/benchmark
+
+summary: False
+
+coefficients_plots:
+  posterior_histograms:
+    nrows: -1
+    disjointed_lists: False
+    bins: 40
+    show_closure_truth: True
+    closure_line_style: "--"
+    closure_line_color: red
+    show_closure_legend: True
+    closure_line_label: "Closure truth"
+  logo: False
+
+coeff_info:
+  default:
+    - [OpBox, "$O_{Box}$"]
+
+data_info:
+  default:
+    - [FCCee_ww_161GeV, "WW @ 161 GeV"]

@@ -680,6 +680,32 @@ class CoefficientsPlotter:
 
         return nrows, ncols
 
+    @staticmethod
+    def _extract_point_value(point_values, coeff_name):
+        """Return per-coefficient value from common container types."""
+        if point_values is None:
+            return None
+
+        try:
+            if isinstance(point_values, pd.DataFrame):
+                if coeff_name in point_values.columns:
+                    return float(point_values[coeff_name].iloc[0])
+                return None
+
+            if isinstance(point_values, pd.Series):
+                if coeff_name in point_values.index:
+                    return float(point_values[coeff_name])
+                return None
+
+            if isinstance(point_values, dict):
+                if coeff_name in point_values:
+                    return float(point_values[coeff_name])
+                return None
+        except (TypeError, ValueError):
+            return None
+
+        return None
+
     def plot_posteriors(self, posteriors, labels, **kwargs):
         """Plot posteriors histograms.
 
@@ -691,8 +717,25 @@ class CoefficientsPlotter:
                 list of fit names
             kwargs: dict
                 keyword arguments for the plot
+                Supported keys:
+                - show_closure_truth: bool
+                - closure_truth_points: list[dict | pd.Series | pd.DataFrame]
+                - closure_line_color: str
+                - closure_line_style: str
+                - closure_line_width: float
+                - closure_line_alpha: float
+                - show_closure_legend: bool
+                - closure_line_label: str
         """
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        show_closure_truth = kwargs.get("show_closure_truth", False)
+        closure_truth_points = kwargs.get("closure_truth_points", None)
+        closure_line_color = kwargs.get("closure_line_color", "black")
+        closure_line_style = kwargs.get("closure_line_style", "--")
+        closure_line_width = kwargs.get("closure_line_width", 1.6)
+        closure_line_alpha = kwargs.get("closure_line_alpha", 0.9)
+        show_closure_legend = kwargs.get("show_closure_legend", False)
+        closure_line_label = kwargs.get("closure_line_label", "Closure truth")
 
         nrows, ncols = self.compute_rows_and_columns(
             kwargs.get("nrows", -1), kwargs.get("ncols", -1)
@@ -739,6 +782,22 @@ class CoefficientsPlotter:
                         alpha=0.3,
                         label=labels[clr_idx],
                     )
+
+                if show_closure_truth and closure_truth_points is not None:
+                    if clr_idx < len(closure_truth_points):
+                        closure_value = self._extract_point_value(
+                            closure_truth_points[clr_idx], l
+                        )
+                        if closure_value is not None:
+                            ax.axvline(
+                                closure_value,
+                                color=closure_line_color,
+                                linestyle=closure_line_style,
+                                linewidth=closure_line_width,
+                                alpha=closure_line_alpha,
+                                zorder=11,
+                            )
+
                 ax.text(
                     0.05,
                     0.85,
@@ -754,6 +813,25 @@ class CoefficientsPlotter:
             if len(axes.get_legend_handles_labels()[0]) > len(lines):
                 lines, labels = axes.get_legend_handles_labels()
 
+        lines = list(lines)
+        labels = list(labels)
+        if (
+            show_closure_truth
+            and show_closure_legend
+            and closure_line_label not in labels
+        ):
+            lines.append(
+                mlines.Line2D(
+                    [],
+                    [],
+                    color=closure_line_color,
+                    linestyle=closure_line_style,
+                    linewidth=closure_line_width,
+                    alpha=closure_line_alpha,
+                )
+            )
+            labels.append(closure_line_label)
+
         # fontsize is normalised to 25 for 5 columns and subplot size 4
         legend_font_size = 25 * (ncols * subplot_size) / 20
         legend_font_size_inch = legend_font_size / 72  # 72 pt = 1 inch
@@ -761,7 +839,7 @@ class CoefficientsPlotter:
         fig.legend(
             lines,
             labels,
-            ncol=len(posteriors),
+            ncol=len(labels),
             prop={"size": legend_font_size},
             bbox_to_anchor=(0.5, 1.0),
             loc="upper center",
