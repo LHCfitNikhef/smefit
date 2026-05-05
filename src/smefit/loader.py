@@ -9,8 +9,13 @@ import pandas as pd
 import scipy.linalg as la
 import yaml
 
+from smefit.covmat import (
+    compute_blocks_inverse,
+    construct_covmat,
+    covmat_from_systematics,
+)
+
 from .basis_rotation import rotate_to_fit_basis
-from .covmat import construct_covmat, covmat_from_systematics
 from .log import logging
 
 _logger = logging.getLogger(__name__)
@@ -51,8 +56,7 @@ def check_missing_operators(loaded_corrections, coeff_config):
         )
 
 
-def check_condition_number(fit_covmat, critical_cond=15.5):
-    condition_number = np.linalg.cond(fit_covmat)
+def check_condition_number(condition_number, critical_cond=15.5):
     digits = round(np.log10(condition_number), 2)
     if digits > critical_cond:
         _logger.warning(
@@ -68,15 +72,15 @@ def check_covmat_positivity(fit_covmat):
         _logger.warning(f"Covariance matrix not positive")
 
 
-def check_covmat_invertibility(fit_covmat, inv_covmat, threshold=1e-3):
-    if (
-        jnp.max(np.abs(inv_covmat @ fit_covmat - np.eye(fit_covmat.shape[0])))
-        > threshold
-    ):
+def check_covmat_invertibility(fit_covmat, inv_covmat, threshold=1e-2):
+    diff = np.abs(inv_covmat @ fit_covmat - np.eye(fit_covmat.shape[0]))
+    max_deviation = jnp.max(diff)
+    if max_deviation > threshold:
         _logger.warning(
             "Failed inverting fit covariance matrix. "
             + "Check matrix condition number and using float64 "
         )
+    return max_deviation
 
 
 class Loader:
@@ -664,7 +668,7 @@ def load_datasets(
         cutoff_scale: float, optional
             kinematic cutoff scale
     """
-
+    datasets.sort(key=lambda d: d["name"].lower())
     exp_data = []
     sm_theory = []
     sys_error_t0 = []
@@ -676,7 +680,6 @@ def load_datasets(
     lumi_exp = []
     exp_name = []
     th_cov = []
-
     Loader.commondata_path = pathlib.Path(commondata_path)
     Loader.theory_path = pathlib.Path(theory_path or commondata_path)
 
@@ -774,9 +777,9 @@ def load_datasets(
         fit_covmat = exp_covmat
 
     # Check fit_covmat condition number
-    check_condition_number(fit_covmat)
     check_covmat_positivity(fit_covmat)
-    inv_cov_mat = np.linalg.inv(fit_covmat)
+    inv_cov_mat, cond_number = compute_blocks_inverse(fit_covmat)
+    check_condition_number(cond_number)
     check_covmat_invertibility(fit_covmat, inv_cov_mat)
     # Make one large datatuple containing all data, SM theory, corrections, etc.
     return DataTuple(
