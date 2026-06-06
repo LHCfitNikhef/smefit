@@ -7,11 +7,11 @@ import arviz
 import matplotlib.lines as mlines
 import matplotlib.markers as markers
 import matplotlib.patches as patches
-from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.lines import Line2D
 
 from .contours_2d import confidence_ellipse, plot_contours, split_solution
 from .latex_tools import latex_packages, multicolum_table_header
@@ -96,9 +96,7 @@ def get_confidence_values(dist, has_posterior=True):
         # del(cl_vals[f"hdi_{cl}_low"])
         # del(cl_vals[f"hdi_{cl}_high"])
         # del(cl_vals[f"hdi_{cl}_mids"])
-        hdi_interval_mono = np.array(
-            arviz.hdi(dist.values, hdi_prob=cl * 1e-2, multimodal=False)
-        )
+        hdi_interval_mono = np.array(arviz.hdi(dist.values, prob=cl * 1e-2))
         cl_vals[f"hdi_mono_{cl}_low"] = hdi_interval_mono[0]
         cl_vals[f"hdi_mono_{cl}_high"] = hdi_interval_mono[1]
         cl_vals[f"hdi_mono_{cl}_mids"] = find_mode_hdis(
@@ -455,6 +453,7 @@ class CoefficientsPlotter:
         x_log=True,
         x_min=1e-2,
         x_max=500,
+        ratio_to_first=False,
     ):
         """
         Plot error bars at given confidence level
@@ -473,11 +472,20 @@ class CoefficientsPlotter:
                 Minimum x-value, 1e-2 by default
             x_max: float, optional
                 Maximum x-value, 500 by default
-            legend_loc: string, optional
-                Legend location, "best" by default
+            ratio_to_first: bool, optional
+                If True, normalize all bounds by the first fit (reference) and plot
+                the ratio. The reference fit is dropped from the bars and a vertical
+                line at 1.0 is added instead. Default False.
 
         """
         df = pd.DataFrame(error)
+
+        ref_label = None
+        if ratio_to_first:
+            ref = df.iloc[:, 0].replace(0, np.nan)
+            ref_label = df.columns[0]
+            df = df.iloc[:, 1:].div(ref, axis=0)
+
         groups, axs = self._get_suplblots(figsize)
 
         for ax, (g, bars) in zip(axs, df.groupby(level=0, sort=False)):
@@ -496,8 +504,17 @@ class CoefficientsPlotter:
             ax.set_title(f"\\rm {g}", x=0.95, y=1.0)
             ax.grid(True, which="both", ls="dashed", axis="x", lw=0.5)
 
-            # Hard cutoff
-            if plot_cutoff is not None:
+            if ratio_to_first:
+                ax.vlines(
+                    1.0,
+                    -2,
+                    3 * groups[g] + 2,
+                    ls="dashed",
+                    color="black",
+                    alpha=0.7,
+                    label=ref_label,
+                )
+            elif plot_cutoff is not None:
                 ax.vlines(
                     plot_cutoff,
                     -2,
@@ -508,9 +525,14 @@ class CoefficientsPlotter:
                 )
 
         self._plot_logo(axs[-1])
-        axs[-1].set_xlabel(
-            r"$95\%\ {\rm Confidence\ Level\ Bounds}\ (1/{\rm TeV}^2)$", fontsize=20
-        )
+        if ratio_to_first:
+            axs[-1].set_xlabel(
+                r"${\rm Bound\ ratio\ w.r.t.\ full\ FCC\textnormal{-}ee}$", fontsize=20
+            )
+        else:
+            axs[-1].set_xlabel(
+                r"$95\%\ {\rm Confidence\ Level\ Bounds}\ (1/{\rm TeV}^2)$", fontsize=20
+            )
         axs[0].legend(
             loc="lower center",
             bbox_to_anchor=(0, 1.1, 1.0, 0.05),
@@ -519,8 +541,92 @@ class CoefficientsPlotter:
             ncol=2,
         )
         plt.tight_layout()
-        plt.savefig(f"{self.report_folder}/coefficient_bar.pdf", dpi=500)
-        plt.savefig(f"{self.report_folder}/coefficient_bar.png")
+        suffix = "_ratio" if ratio_to_first else ""
+        plt.savefig(f"{self.report_folder}/coefficient_bar{suffix}.pdf", dpi=500)
+        plt.savefig(f"{self.report_folder}/coefficient_bar{suffix}.png")
+
+    def plot_coeffs_bar_stacked_ratio(
+        self,
+        error,
+        figsize=(15, 20),
+        x_max=None,
+        color=None,
+    ):
+        """
+        Overlapping horizontal bar chart of Lambda_FCCee / Lambda_i per scenario.
+
+        For each coefficient the bars for all descoped scenarios are drawn at the
+        same y-position.  Within each row bars are plotted from largest to smallest
+        so the worst-reach scenario (highest ratio) is always visible behind the
+        others.  Colors are kept consistent per scenario across all operators.
+
+        Parameters
+        ----------
+        error : dict
+            Full CI bound widths (high - low) per fit label, indexed by coefficient.
+        figsize : list, optional
+            Figure size.
+        x_max : float, optional
+            Maximum x-value. Inferred from data if None.
+        color : list, optional
+            Colors, one per non-reference fit in the order they appear.
+        """
+        df = pd.DataFrame(error)
+        df_lambda = 1.0 / df.replace(0, np.nan).pow(0.5)
+        ref_lambda = df_lambda.iloc[:, 0]
+        df_ratio = df_lambda.iloc[:, 1:].rdiv(ref_lambda, axis=0).clip(lower=1.0)
+
+        # Build a consistent color map: scenario label → color
+        prop_colors = [p["color"] for p in plt.rcParams["axes.prop_cycle"]]
+        color_list = list(color) if color is not None else prop_colors
+        color_map = {
+            col: color_list[i % len(color_list)]
+            for i, col in enumerate(df_ratio.columns)
+        }
+
+        groups, axs = self._get_suplblots(figsize)
+        legend_handles = [
+            patches.Patch(color=color_map[col], label=col) for col in df_ratio.columns
+        ]
+
+        for ax, (g, bars) in zip(axs, df_ratio.groupby(level=0, sort=False)):
+            # Reverse so first operator is at the top of the subplot
+            bars_ttb = bars.iloc[::-1].droplevel(0)
+            n_ops = len(bars_ttb)
+            y = np.arange(n_ops)
+
+            for row_idx, (latex_name, row) in enumerate(bars_ttb.iterrows()):
+                # Sort descending so the longest (worst) bar is drawn first (behind)
+                for scenario, val in row.sort_values(ascending=False).items():
+                    ax.barh(row_idx, val, height=0.6, color=color_map[scenario])
+
+            group_x_max = x_max if x_max is not None else bars_ttb.max().max() * 1.05
+
+            ax.set_ylim(-0.5, n_ops - 0.5)
+            ax.set_yticks(y)
+            ax.set_yticklabels(bars_ttb.index, fontsize=13)
+            ax.set_xlim(1.0, group_x_max)
+            ax.set_title(f"\\rm {g}", x=0.95, y=1.0)
+            ax.grid(True, which="both", ls="dashed", axis="x", lw=0.5)
+            # reference line at ratio = 1 (no deterioration)
+            ax.vlines(1.0, -0.5, n_ops - 0.5, ls="dashed", color="black", alpha=0.7)
+
+        self._plot_logo(axs[-1])
+        # axs[-1].set_xlabel(
+        #     r"$\Lambda_{\rm FCC\text{-}ee}/\Lambda_i$",
+        #     fontsize=20,
+        # )
+        axs[0].legend(
+            handles=legend_handles,
+            loc="lower center",
+            bbox_to_anchor=(0, 1.1, 1.0, 0.05),
+            frameon=False,
+            prop={"size": 13},
+            ncol=2,
+        )
+        plt.tight_layout()
+        plt.savefig(f"{self.report_folder}/coefficient_bar_stacked_ratio.pdf", dpi=500)
+        plt.savefig(f"{self.report_folder}/coefficient_bar_stacked_ratio.png")
 
     def plot_coeffs_bar_glob_vs_ind_lambda(
         self,
@@ -721,8 +827,6 @@ class CoefficientsPlotter:
                 )
             ax.set_title(f"\\rm {g}", x=0.95, y=1.0, fontsize=16)
 
-
-
             # Hard cutoff
             if plot_cutoff is not None:
                 ax.vlines(
@@ -742,7 +846,8 @@ class CoefficientsPlotter:
                 label=label1,  # bars
             ),
             Line2D(
-                [0], [0],
+                [0],
+                [0],
                 marker="<",
                 linestyle="None",
                 markersize=10,
@@ -836,20 +941,11 @@ class CoefficientsPlotter:
                 ::-1
             ]  # reverse order to plot from top to bottom in ax
 
-            df_glob_no_th = 1 / np.sqrt(
-                bars_top_to_bottom.loc[:, df.columns.str.contains("notheounc")]
+            df_glob_with_mt = 1 / np.sqrt(
+                bars_top_to_bottom.loc[:, df.columns.str.contains("with_mt")]
             )
-            df_glob_cons_th = 1 / np.sqrt(
-                bars_top_to_bottom.loc[:, df.columns.str.contains("conservative")]
-            )
-            df_glob_agg_th = 1 / np.sqrt(
-                bars_top_to_bottom.loc[:, df.columns.str.contains("aggressive")]
-            )
-            df_glob_current_th = 1 / np.sqrt(
-                bars_top_to_bottom.loc[:, df.columns.str.contains("current")]
-            )
-            df_glob_current_th.columns = df_glob_current_th.columns.str.replace(
-                "\\,current", ""
+            df_glob_no_mt = 1 / np.sqrt(
+                bars_top_to_bottom.loc[:, ~df.columns.str.contains("with_mt")]
             )
 
             df_max = (1 / np.sqrt(bars_top_to_bottom)).values.max()
@@ -858,7 +954,7 @@ class CoefficientsPlotter:
 
             ax.set_xlim(0, df_max + delta)
 
-            df_glob_current_th.droplevel(0).plot(
+            df_glob_no_mt.droplevel(0).plot(
                 kind="barh",
                 width=0.8,
                 ax=ax,
@@ -873,35 +969,7 @@ class CoefficientsPlotter:
 
             handles_current, labels_current = ax.get_legend_handles_labels()
 
-            df_glob_cons_th.droplevel(0).plot(
-                kind="barh",
-                width=0.8,
-                ax=ax,
-                hatch="///////",
-                legend=False,
-                logx=x_log,
-                fontsize=18,
-                color=color,
-                edgecolor="k",
-                linewidth=0.3,
-                zorder=3,
-            )
-
-            df_glob_agg_th.droplevel(0).plot(
-                kind="barh",
-                width=0.8,
-                ax=ax,
-                hatch="xx",
-                legend=False,
-                logx=x_log,
-                fontsize=18,
-                color=color,
-                edgecolor="k",
-                linewidth=0.3,
-                zorder=2,
-            )
-
-            df_glob_no_th.droplevel(0).plot(
+            df_glob_with_mt.droplevel(0).plot(
                 kind="barh",
                 width=0.8,
                 ax=ax,
@@ -933,30 +1001,22 @@ class CoefficientsPlotter:
 
         handles = [
             Line2D(
-                [], [],
+                [],
+                [],
                 linestyle="None",
                 label=legend_title,
             ),
             patches.Patch(
                 alpha=0.8,
+                hatch="...",
+                fill=None,
+                label=r"$\rm{Staged\;top}$",
+            ),
+            patches.Patch(
+                alpha=0.8,
                 fill=True,
-                label=r"$\rm{Current\;Theory\;unc.}$",
+                label=r"$\rm{No\;top\;run}$",
                 color="black",
-            ),
-            patches.Patch(
-                alpha=0.8,
-                hatch="///////",
-                fill=None,
-                label=r"$\rm{Conservative\;Theory\;unc.}$",
-            ),
-            patches.Patch(
-                alpha=0.8,
-                hatch="xxx",
-                fill=None,
-                label=r"$\rm{Aggressive\;Theory\,unc.}$",
-            ),
-            patches.Patch(
-                alpha=0.8, hatch="...", fill=None, label=r"$\rm{Ideal\;Theory\;unc.}$"
             ),
         ]
 

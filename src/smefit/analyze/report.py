@@ -219,6 +219,7 @@ class Report:
         self,
         scatter_plot=None,
         confidence_level_bar=None,
+        confidence_level_bar_stacked=None,
         confidence_level_bar_glob_vs_ind=None,
         confidence_level_bar_glob_vs_ind_lambda=None,
         confidence_level_bar_theory_unc=None,
@@ -302,13 +303,28 @@ class Report:
             coeff_plt.plot_coeffs_bar(
                 {
                     name: -bound_df.loc[zero_sol, f"low{bar_cl}"]
-                          + bound_df.loc[zero_sol, f"high{bar_cl}"]
+                    + bound_df.loc[zero_sol, f"high{bar_cl}"]
                     for name, bound_df in bounds_dict.items()
                 },
                 **confidence_level_bar,
             )
             figs_list.append("coefficient_bar")
-            
+
+        if confidence_level_bar_stacked is not None:
+            _logger.info("Plotting : Stacked ratio confidence level bars")
+            bar_cl = confidence_level_bar_stacked["confidence_level"]
+            confidence_level_bar_stacked.pop("confidence_level")
+            zero_sol = 0
+            coeff_plt.plot_coeffs_bar_stacked_ratio(
+                {
+                    name: -bound_df.loc[zero_sol, f"low{bar_cl}"]
+                    + bound_df.loc[zero_sol, f"high{bar_cl}"]
+                    for name, bound_df in bounds_dict.items()
+                },
+                **confidence_level_bar_stacked,
+            )
+            figs_list.append("coefficient_bar_stacked_ratio")
+
         if confidence_level_bar_theory_unc is not None:
             _logger.info("Plotting : Confidence Level error bars")
             bar_cl = confidence_level_bar_theory_unc["confidence_level"]
@@ -328,10 +344,10 @@ class Report:
                 coeff_plt.plot_coeffs_bar_theory_unc(
                     {
                         name: (
-                                      -bound_df.loc[zero_sol, f"low{bar_cl}"]
-                                      + bound_df.loc[zero_sol, f"high{bar_cl}"]
-                              )
-                              / 2.0
+                            -bound_df.loc[zero_sol, f"low{bar_cl}"]
+                            + bound_df.loc[zero_sol, f"high{bar_cl}"]
+                        )
+                        / 2.0
                         for name, bound_df in bounds_dict.items()
                     },
                     **confidence_level_bar_theory_unc,
@@ -494,7 +510,7 @@ class Report:
 
         for fit in fit_list:
             _logger.info(f"Plotting correlations for: {fit.name}")
-            #coeff_to_keep = fit.coefficients.free_parameters.index
+            # coeff_to_keep = fit.coefficients.free_parameters.index
             plot_correlations(
                 fit.results["samples"],
                 latex_names=self.coeff_info.droplevel(0),
@@ -597,7 +613,9 @@ class Report:
             fisher_cal = FisherCalculator(fit.coefficients, fit.datasets, compute_quad)
             fisher_cal.compute_linear()
 
-            fisher_cal.lin_fisher = fisher_cal.normalize(fisher_cal.lin_fisher, norm=norm, log=log)
+            fisher_cal.lin_fisher = fisher_cal.normalize(
+                fisher_cal.lin_fisher, norm=norm, log=log
+            )
 
             fisher_cal.summary_table = fisher_cal.groupby_data(
                 fisher_cal.lin_fisher, self.data_info, norm, log

@@ -388,9 +388,7 @@ class Projection:
 
             if projection_folder != self.commondata_path:
                 if lumi_new is not None:
-                    with open(
-                        f"{projection_folder}/{dataset_name}_proj.yaml", "w"
-                    ) as file:
+                    with open(f"{projection_folder}/{dataset_name}.yaml", "w") as file:
                         yaml.dump(data_dict, file, sort_keys=False)
                 else:
                     with open(f"{projection_folder}/{dataset_name}.yaml", "w") as file:
@@ -402,10 +400,10 @@ class Projection:
                 sys.exit()
 
             # copy corresponding theory predictions with _proj appended to filename
-            if lumi_new is not None:
-                shutil.copy(
-                    self.theory_path / f"{dataset_name}.json",
-                    self.theory_path / f"{dataset_name}_proj.json",
-                )
+            # if lumi_new is not None:
+            #     shutil.copy(
+            #         self.theory_path / f"{dataset_name}.json",
+            #         self.theory_path / f"{dataset_name}_proj.json",
+            #     )
 
             cnt += num_data
