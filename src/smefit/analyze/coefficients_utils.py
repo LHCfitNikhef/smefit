@@ -596,33 +596,44 @@ class CoefficientsPlotter:
             y = np.arange(n_ops)
 
             for row_idx, (latex_name, row) in enumerate(bars_ttb.iterrows()):
-                # Sort descending so the longest (worst) bar is drawn first (behind)
-                for scenario, val in row.sort_values(ascending=False).items():
-                    ax.barh(row_idx, val, height=0.6, color=color_map[scenario])
+                # Draw in reverse runcard order so the first scenario is always on top
+                for scenario in row.index[::-1]:
+                    ax.barh(
+                        row_idx, row[scenario], height=0.6, color=color_map[scenario]
+                    )
 
             group_x_max = x_max if x_max is not None else bars_ttb.max().max() * 1.05
 
             ax.set_ylim(-0.5, n_ops - 0.5)
             ax.set_yticks(y)
-            ax.set_yticklabels(bars_ttb.index, fontsize=13)
+            ax.set_yticklabels(bars_ttb.index, fontsize=17)
             ax.set_xlim(1.0, group_x_max)
+            ax.tick_params(axis="x", labelsize=17)
             ax.set_title(f"\\rm {g}", x=0.95, y=1.0)
             ax.grid(True, which="both", ls="dashed", axis="x", lw=0.5)
-            # reference line at ratio = 1 (no deterioration)
-            ax.vlines(1.0, -0.5, n_ops - 0.5, ls="dashed", color="black", alpha=0.7)
 
-        self._plot_logo(axs[-1])
-        # axs[-1].set_xlabel(
-        #     r"$\Lambda_{\rm FCC\text{-}ee}/\Lambda_i$",
-        #     fontsize=20,
-        # )
-        axs[0].legend(
+        n_groups = len(groups)
+        xlabel = r"$(\Lambda/\sqrt{c_i})_{{\rm FCC}\textnormal{-}{\rm ee}}/(\Lambda/\sqrt{c_i})$"
+        for col_last in [
+            max(i for i in range(n_groups) if i % 2 == 0),
+            max((i for i in range(n_groups) if i % 2 == 1), default=None),
+        ]:
+            if col_last is not None:
+                axs[col_last].set_xlabel(xlabel, fontsize=17)
+
+        fig = axs[0].figure
+        if self.logo is not None:
+            ax_logo = fig.add_axes([0.05, 0.96, 0.12, 0.04])
+            ax_logo.imshow(self.logo, aspect="auto")
+            ax_logo.axis("off")
+
+        fig.legend(
             handles=legend_handles,
-            loc="lower center",
-            bbox_to_anchor=(0, 1.1, 1.0, 0.05),
+            loc="center",
+            bbox_to_anchor=(0.5, 0.98),
+            ncol=len(legend_handles),
             frameon=False,
-            prop={"size": 13},
-            ncol=2,
+            prop={"size": 17},
         )
         plt.tight_layout()
         plt.savefig(f"{self.report_folder}/coefficient_bar_stacked_ratio.pdf", dpi=500)
@@ -1011,12 +1022,6 @@ class CoefficientsPlotter:
                 hatch="...",
                 fill=None,
                 label=r"$\rm{Staged\;top}$",
-            ),
-            patches.Patch(
-                alpha=0.8,
-                fill=True,
-                label=r"$\rm{No\;top\;run}$",
-                color="black",
             ),
         ]
 
