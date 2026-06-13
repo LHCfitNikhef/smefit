@@ -946,8 +946,9 @@ class CoefficientsPlotter:
         n_runs = int(len(df.columns) / 2)
         color = color[:n_runs]
 
-        groups, axs = self._get_suplblots(figsize)
-        for ax, (g, bars) in zip(axs, df.groupby(level=0, sort=False)):
+        for i, (g, bars) in enumerate(df.groupby(level=0, sort=False)):
+
+            fig, ax = plt.subplots(figsize=(16, 8))
             bars_top_to_bottom = bars.iloc[
                 ::-1
             ]  # reverse order to plot from top to bottom in ax
@@ -963,15 +964,14 @@ class CoefficientsPlotter:
             df_min = (1 / np.sqrt(bars_top_to_bottom)).values.min()
             delta = 0.05 * (df_max - df_min)
 
-            ax.set_xlim(0, df_max + delta)
+            ax.set_ylim(0, df_max + delta)
 
             df_glob_no_mt.droplevel(0).plot(
-                kind="barh",
+                kind="bar",
                 width=0.8,
                 ax=ax,
                 legend=None,
-                logx=x_log,
-                fontsize=18,
+                fontsize=22,
                 color=color,
                 edgecolor="k",
                 linewidth=0.3,
@@ -981,80 +981,60 @@ class CoefficientsPlotter:
             handles_current, labels_current = ax.get_legend_handles_labels()
 
             df_glob_with_mt.droplevel(0).plot(
-                kind="barh",
+                kind="bar",
                 width=0.8,
                 ax=ax,
                 hatch="...",
                 legend=False,
-                logx=x_log,
-                fontsize=18,
+                fontsize=22,
                 color=color,
                 edgecolor="k",
                 linewidth=0.3,
                 zorder=1,
             )
 
-            ax.spines["left"].set_zorder(10)
+            # ax.spines["left"].set_zorder(10)
 
-            ax.set_title(f"\\rm {g}", x=0.95, y=1.0, fontsize=16)
-            ax.grid(True, which="both", ls="dashed", axis="x", lw=0.5)
+            ax.grid(True, which="both", ls="dashed", axis="y", lw=0.5)
+            ax.tick_params(axis="x", rotation=0)
 
-            # Hard cutoff
-            if plot_cutoff is not None:
-                ax.vlines(
-                    plot_cutoff,
-                    -2,
-                    3 * groups[g] + 2,
-                    ls="dashed",
-                    color="black",
-                    alpha=0.7,
-                )
+            if self.logo is not None:
+                ax_logo = fig.add_axes([0.8, 0.85, 0.15, 0.1])
+                ax_logo.imshow(self.logo, aspect="auto")
+                ax_logo.axis("off")
 
-        handles = [
-            Line2D(
-                [],
-                [],
-                linestyle="None",
-                label=legend_title,
-            ),
-            patches.Patch(
-                alpha=0.8,
-                hatch="...",
-                fill=None,
-                label=r"$\rm{Staged\;top}$",
-            ),
-        ]
+            ax.set_ylabel(r"$\Lambda/\sqrt{c_i(\mu_0)}\;[{\rm TeV}]$", fontsize=20)
 
-        axs[-1].legend(
-            handles=handles,
-            ncols=1,
-            loc="center",
-            fontsize=20,
-            bbox_to_anchor=(1.1, 0.4, 1.0, 0.05),
-        )
-        if self.logo is not None:
-            fig = axs[0].figure
-            # place logo in its own small axes outside main plotting area (figure coordinates)
-            ax_logo = fig.add_axes([0.05, 0.96, 0.15, 0.04])
-            ax_logo.imshow(self.logo, aspect="auto")
-            ax_logo.axis("off")
+            handles_current += [
+                patches.Patch(
+                    alpha=0.8,
+                    hatch="..",
+                    fill=None,
+                    label=r"$\rm{Top\;run}$",
+                ),
+                Line2D(
+                    [],
+                    [],
+                    linestyle="None",
+                    label=legend_title,
+                ),
+            ]
+            labels_current += [r"$\rm{Top\;run}$", ""]
 
-        axs[-1].set_xlabel(r"$\Lambda/\sqrt{c_i(\mu_0)}\;[{\rm TeV}]$", fontsize=20)
-        axs[-2].set_xlabel(r"$\Lambda/\sqrt{c_i(\mu_0)}\;[{\rm TeV}]$", fontsize=20)
+            ax.legend(
+                handles=handles_current,
+                labels=labels_current,
+                loc="best",
+                # loc="lower left",
+                # bbox_to_anchor=(0.05, 1.05, 1.0, 0.05),
+                frameon=False,
+                ncol=3,
+                fontsize=20,
+            )
 
-        axs[0].legend(
-            handles=handles_current,
-            labels=labels_current,
-            loc="lower center",
-            bbox_to_anchor=(0.7, 1.1, 1.0, 0.05),
-            frameon=False,
-            prop={"size": 17},
-            ncol=len(groups),
-        )
-
-        # plt.tight_layout()
-        plt.savefig(f"{self.report_folder}/coefficient_bar.pdf", dpi=500)
-        plt.savefig(f"{self.report_folder}/coefficient_bar.png")
+            plt.tight_layout()
+            plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.pdf", dpi=500)
+            plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.png")
 
     def plot_pull(self, pull, x_min=-3, x_max=3, figsize=(10, 15)):
         """
