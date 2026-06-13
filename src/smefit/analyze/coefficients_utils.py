@@ -998,11 +998,6 @@ class CoefficientsPlotter:
             ax.grid(True, which="both", ls="dashed", axis="y", lw=0.5)
             ax.tick_params(axis="x", rotation=0)
 
-            if self.logo is not None:
-                ax_logo = fig.add_axes([0.8, 0.85, 0.15, 0.1])
-                ax_logo.imshow(self.logo, aspect="auto")
-                ax_logo.axis("off")
-
             ax.set_ylabel(r"$\Lambda/\sqrt{c_i(\mu_0)}\;[{\rm TeV}]$", fontsize=20)
 
             handles_current += [
@@ -1032,7 +1027,16 @@ class CoefficientsPlotter:
                 fontsize=20,
             )
 
-            plt.tight_layout()
+            plt.tight_layout(rect=[0, 0, 1, 0.92])
+
+            if self.logo is not None:
+                pos = ax.get_position()
+                logo_w = 0.15
+                logo_h = logo_w * fig.get_figwidth() / fig.get_figheight() / 3
+                ax_logo = fig.add_axes([pos.x0, pos.y1 + 0.01, logo_w, logo_h])
+                ax_logo.imshow(self.logo, aspect="auto")
+                ax_logo.axis("off")
+
             plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.pdf", dpi=500)
             plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.png")
 
