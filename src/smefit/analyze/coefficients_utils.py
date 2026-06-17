@@ -918,8 +918,8 @@ class CoefficientsPlotter:
         x_log=True,
         x_min=1e-2,
         x_max=500,
+        title=None,
         color=None,
-        legend_title=None,
     ):
         """
         Plot error bars at given confidence level
@@ -1010,8 +1010,7 @@ class CoefficientsPlotter:
                 Line2D(
                     [],
                     [],
-                    linestyle="None",
-                    label=legend_title,
+                    linestyle="None"
                 ),
             ]
             labels_current += [r"$\rm{Top\;run}$", ""]
@@ -1026,6 +1025,9 @@ class CoefficientsPlotter:
                 ncol=3,
                 fontsize=20,
             )
+
+            if title is not None:
+                ax.set_title(title, fontsize=20, y=1.05)
 
             plt.tight_layout(rect=[0, 0, 1, 0.92])
 
