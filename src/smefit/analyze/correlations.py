@@ -40,7 +40,7 @@ def plot_correlations(
         posterior_df = posterior_df.drop(hide_dofs, axis=1)
 
     # get correlation of free parameters
-    correlations = posterior_df.corr()
+    correlations = posterior_df[latex_names.index].corr()
 
     # Show only the values higher than a threshold
     if thr_show is not None:
@@ -80,7 +80,7 @@ def plot_correlations(
                 )
             else:
                 continue
-
+    import pdb; pdb.set_trace()
     labels = latex_names[coeff_to_keep].values
     ticks = np.arange(labels.shape[0])
     ax.set_yticks(ticks, labels=labels, fontsize=15)
