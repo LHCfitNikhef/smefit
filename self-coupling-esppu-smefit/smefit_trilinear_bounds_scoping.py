@@ -16,23 +16,28 @@ result_dir = pathlib.Path(
     "/data/theorie/jthoeve/physics_projects/new_smefit/results/descoped_fccee")
 
 runs_ind_lin = [
-    "260324_jth_FCCee_250GEV_LIN_IND_aggressive",
-    "260702_jth_FCCee_no_top_250GEV_LIN_IND_aggressive",
-    "260702_jth_FCCee_descoped_4IPs_staged_top_250GEV_LIN_IND_aggressive",
-    "260702_jth_FCCee_descoped_4IPs_250GEV_LIN_IND_aggressive",
-    "260702_jth_FCCee_descoped_2IPs_staged_top_250GEV_LIN_IND_aggressive",
-    "260702_jth_FCCee_descoped_2IPs_250GEV_LIN_IND_aggressive",
-    "260324_jth_LEP3_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_no_top_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_descoped_4IPs_staged_top_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_descoped_4IPs_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_descoped_2IPs_staged_top_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_descoped_2IPs_250GEV_LIN_IND_aggressive",
+    "260721_jth_LEP3_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_upscoped_120lumi_global_250GEV_LIN_IND_aggressive",
+    "260721_jth_FCCee_upscoped_150lumi_top_only_250GEV_LIN_IND_aggressive"
+
 ]
 
 runs_glob_lin = [
-    "260326_jth_FCCee_250GEV_LIN_GLOB_aggressive",
-    "260702_jth_FCCee_no_top_250GEV_LIN_GLOB_aggressive",
-    "260702_jth_FCCee_descoped_4IPs_staged_top_250GEV_LIN_GLOB_aggressive",
-    "260702_jth_FCCee_descoped_4IPs_250GEV_LIN_GLOB_aggressive",
-    "260702_jth_FCCee_descoped_2IPs_staged_top_250GEV_LIN_GLOB_aggressive",
-    "260702_jth_FCCee_descoped_2IPs_250GEV_LIN_GLOB_aggressive",
-    "260326_jth_LEP3_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_no_top_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_descoped_4IPs_staged_top_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_descoped_4IPs_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_descoped_2IPs_staged_top_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_descoped_2IPs_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_LEP3_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_upscoped_120lumi_global_250GEV_LIN_GLOB_aggressive",
+    "260721_jth_FCCee_upscoped_150lumi_top_only_250GEV_LIN_GLOB_aggressive"
 ]
 
 runs_all = runs_ind_lin + runs_glob_lin
@@ -60,6 +65,10 @@ def parse_run(run):
         scope = "FCCee_4IPs"
     elif "descoped_2IPs" in run:
         scope = "FCCee_2IPs"
+    elif "upscoped_120lumi" in run:
+        scope = "FCCee_upscoped_120"
+    elif "upscoped_150lumi" in run:
+        scope = "FCCee_upscoped_150"
     else:
         scope = "FCCee"
 
@@ -138,6 +147,8 @@ def build_latex_bounds_table(df, output_path="trilinear_bounds_scoping_table.tex
         "FCCee": r"${\rm FCC}\textnormal{-}{\rm ee}$",
         "FCCee_4IPs": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm descoped\;4\,IPs}$",
         "FCCee_2IPs": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm descoped\;2\,IPs}$",
+        "FCCee_upscoped_120": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm upscoped\;120}\%$",
+        "FCCee_upscoped_150": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm upscoped\;150}\%\;{\rm top\;only}$"
     }
     eft_labels = {
         "LIN": r"$\mathcal{O}(\Lambda^{-2})$",
@@ -221,12 +232,14 @@ labels = {
     ("QUAD", "GLOB"): r"${\rm Marg.}, \mathcal{O}(\Lambda^{-4})$",
 }
 
-scope_order = ["LEP3", "FCCee", "FCCee_4IPs", "FCCee_2IPs"]
+scope_order = ["LEP3", "FCCee", "FCCee_4IPs", "FCCee_2IPs", "FCCee_upscoped_120", "FCCee_upscoped_150"]
 scope_labels = {
     "LEP3": r"${\rm LEP3}$",
     "FCCee": r"${\rm FCC}\textnormal{-}{\rm ee}$",
     "FCCee_4IPs": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm descoped\;4\,IPs}$",
     "FCCee_2IPs": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm descoped\;2\,IPs}$",
+    "FCCee_upscoped_120": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm upscoped\;120}\%$",
+    "FCCee_upscoped_150": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm upscoped\;150}\%\;{\rm top\;only}$"
 }
 scopes = [s for s in scope_order if s in bounds_trilinear_scoping.index.get_level_values(0).unique()]
 
@@ -323,5 +336,5 @@ new_ax.imshow(logo)
 new_ax.axis('off')
 
 ax.set_title(r"${\rm 68\%\,C.I., \;}\mu_0=250\,{\rm GeV}$")
-
+fig.tight_layout()
 plt.savefig("smefit_trilinear_bounds_scoping.pdf")
