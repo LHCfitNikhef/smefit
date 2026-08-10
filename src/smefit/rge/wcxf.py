@@ -16,6 +16,13 @@ cw = np.sqrt(1 - sw**2)
 # need to be switched on in the Warsaw basis and the corresponding values.
 # These are basically the equations between operators.
 # O_{SMEFiT} = sum_i value_i * O_{Warsaw, i}
+
+# Note on index ordering for same field 4-fermion operators (uu, dd, qq1, qq3, etc):
+# these take the "smaller index first pair" ("_1122") as the standard slot
+# and overwrites the swapped ordering ("_2211") from it. So for these operators,
+# the first pair must have the lowest index first. If we wrote "uu_2211" instead,
+# "uu_1122" would be silently zeroed out by wilson's symmetrisation.
+
 wcxf_translate = {
     # Bosonic
     "OWWW": {"wc": ["W"], "value": [-1.0]},
@@ -84,7 +91,26 @@ wcxf_translate = {
     "OQt1": {"wc": ["qu1_3333"]},
     "OQt8": {"wc": ["qu8_3333"]},
     "Ott1": {"wc": ["uu_3333"]},
-    "Obb": {"wc": ["dd_3333"]},
+    # 4 light quarks
+    "Oqq1": {"wc": ["qq1_1122", "qq1_1111", "qq1_2222"]},
+    "Oqq1p": {"wc": ["qq1_1221", "qq1_1111", "qq1_2222"]},
+    "Oqq3": {"wc": ["qq3_1122", "qq3_1111", "qq3_2222"]},
+    "Oqq3p": {"wc": ["qq3_1221", "qq3_1111", "qq3_2222"]},
+    "Ouu": {"wc": ["uu_1122", "uu_1111", "uu_2222"]},
+    "Ouup": {"wc": ["uu_1221", "uu_1111", "uu_2222"]},
+    "Odd": {
+        "wc": ["dd_1122", "dd_1133", "dd_2233", "dd_1111", "dd_2222", "dd_3333"],
+    },
+    "Oddp": {
+        "wc": ["dd_1221", "dd_1331", "dd_2332", "dd_1111", "dd_2222", "dd_3333"],
+    },
+    "Oqu1": {"wc": ["qu1_1111", "qu1_1122", "qu1_2211", "qu1_2222"]},
+    "Oud1": {
+        "wc": ["ud1_1111", "ud1_1122", "ud1_1133", "ud1_2211", "ud1_2222", "ud1_2233"],
+    },
+    "Oqd1": {
+        "wc": ["qd1_1111", "qd1_1122", "qd1_1133", "qd1_2211", "qd1_2222", "qd1_2233"],
+    },
     # 4 leptons
     # left-left leptons
     "Oll1221": {
@@ -242,7 +268,18 @@ inverse_wcxf_translate = {
     "OQt1": {"wc": ["qu1_3333"]},
     "OQt8": {"wc": ["qu8_3333"]},
     "Ott1": {"wc": ["uu_3333"]},
-    "Obb": {"wc": ["dd_3333"]},
+    # 4 light quarks
+    "Oqq1": {"wc": ["qq1_1122"]},
+    "Oqq1p": {"wc": ["qq1_1221"]},
+    "Oqq3": {"wc": ["qq3_1122"]},
+    "Oqq3p": {"wc": ["qq3_1221"]},
+    "Ouu": {"wc": ["uu_1122"]},
+    "Ouup": {"wc": ["uu_1221"]},
+    "Odd": {"wc": ["dd_1122"]},
+    "Oddp": {"wc": ["dd_1221"]},
+    "Oqu1": {"wc": ["qu1_1122"]},
+    "Oud1": {"wc": ["ud1_1122"]},
+    "Oqd1": {"wc": ["qd1_1122"]},
     # 4 leptons
     # left-left leptons
     "Oll1221": {
