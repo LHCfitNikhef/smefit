@@ -943,7 +943,8 @@ class CoefficientsPlotter:
 
         """
         df = pd.DataFrame(error)
-        n_runs = int(len(df.columns) / 2)
+        # n_runs = int(len(df.columns) / 2)
+        n_runs = int(len(df.columns))
         color = color[:n_runs]
 
         for i, (g, bars) in enumerate(df.groupby(level=0, sort=False)):
@@ -993,7 +994,7 @@ class CoefficientsPlotter:
                 zorder=1,
             )
 
-            # ax.spines["left"].set_zorder(10)
+            ax.spines["left"].set_zorder(10)
 
             ax.grid(True, which="both", ls="dashed", axis="y", lw=0.5)
             ax.tick_params(axis="x", rotation=0)
@@ -1027,7 +1028,7 @@ class CoefficientsPlotter:
             )
 
             if title is not None:
-                ax.set_title(title, fontsize=20, y=1.05)
+                ax.set_title(title[i], fontsize=20, y=1.05)
 
             plt.tight_layout(rect=[0, 0, 1, 0.92])
 
@@ -1041,6 +1042,107 @@ class CoefficientsPlotter:
 
             plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.pdf", dpi=500)
             plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.png")
+
+    def plot_coeffs_bar_upscoped(
+        self,
+        error,
+        figsize=(15, 20),
+        title=None,
+        color=None,
+    ):
+        """
+        Plot error bars at given confidence level
+
+        Parameters
+        ----------
+            error: dict
+               confidence level bounds per fit and coefficient
+            figsize: list, optional
+                Figure size, (10, 15) by default
+            plot_cutoff: float
+                Only show bounds up to here
+            x_log: bool, optional
+                Use a log scale on the x-axis, true by default
+            x_min: float, optional
+                Minimum x-value, 1e-2 by default
+            x_max: float, optional
+                Maximum x-value, 500 by default
+            legend_loc: string, optional
+                Legend location, "best" by default
+
+        """
+        df = pd.DataFrame(error)
+        # n_runs = int(len(df.columns) / 2)
+        n_runs = int(len(df.columns))
+        color = color[:n_runs]
+
+        for i, (g, bars) in enumerate(df.groupby(level=0, sort=False)):
+
+            fig, ax = plt.subplots(figsize=(16, 8))
+            bars_top_to_bottom = bars.iloc[
+                ::-1
+            ]  # reverse order to plot from top to bottom in ax
+
+            df_glob_with_mt = 1 / np.sqrt(
+                bars_top_to_bottom
+            )
+
+            df_max = (1 / np.sqrt(bars_top_to_bottom)).values.max()
+            df_min = (1 / np.sqrt(bars_top_to_bottom)).values.min()
+            delta = 0.05 * (df_max - df_min)
+
+            ax.set_ylim(0, df_max + delta)
+
+
+            handles_current, labels_current = ax.get_legend_handles_labels()
+
+            df_glob_with_mt.droplevel(0).plot(
+                kind="bar",
+                width=0.8,
+                ax=ax,
+                legend=False,
+                fontsize=22,
+                color=color,
+                edgecolor="k",
+                linewidth=0.3,
+                zorder=1,
+            )
+
+            ax.spines["left"].set_zorder(10)
+
+            ax.grid(True, which="both", ls="dashed", axis="y", lw=0.5)
+            ax.tick_params(axis="x", rotation=0)
+
+            ax.set_ylabel(r"$\Lambda/\sqrt{c_i(\mu_0)}\;[{\rm TeV}]$", fontsize=20)
+
+
+
+
+            ax.legend(
+                handles=handles_current,
+                labels=labels_current,
+                loc="upper right",
+                frameon=False,
+                ncol=1,
+                fontsize=20,
+            )
+
+            if title is not None:
+                ax.set_title(title[i], fontsize=20, y=1.05)
+
+            plt.tight_layout(rect=[0, 0, 1, 0.92])
+
+            if self.logo is not None:
+                pos = ax.get_position()
+                logo_w = 0.15
+                logo_h = logo_w * fig.get_figwidth() / fig.get_figheight() / 3
+                ax_logo = fig.add_axes([pos.x0, pos.y1 + 0.01, logo_w, logo_h])
+                ax_logo.imshow(self.logo, aspect="auto")
+                ax_logo.axis("off")
+
+            plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.pdf", dpi=500)
+            plt.savefig(f"{self.report_folder}/coefficient_bar_{i}.png")
+
 
     def plot_pull(self, pull, x_min=-3, x_max=3, figsize=(10, 15)):
         """

@@ -224,6 +224,7 @@ class Report:
         confidence_level_bar_glob_vs_ind_lambda=None,
         confidence_level_bar_theory_unc=None,
         confidence_level_bar_theory_unc_per_sect=None,
+        confidence_level_bar_upscoped=None,
         pull_bar=None,
         spider_plot=None,
         posterior_histograms=True,
@@ -362,10 +363,10 @@ class Report:
             zero_sol = 0
 
             if ci_type in ["hdi", "hdi_mono"]:
-
+                # Halfwidth HDI
                 coeff_plt.plot_coeffs_bar_theory_unc(
                     {
-                        name: bound_df.loc[zero_sol, f"{ci_type}_{bar_cl}"]
+                        name: bound_df.loc[zero_sol, f"{ci_type}_{bar_cl}"] / 2.0
                         for name, bound_df in bounds_dict.items()
                     },
                     **confidence_level_bar_theory_unc_per_sect,
@@ -383,6 +384,35 @@ class Report:
                     **confidence_level_bar_theory_unc_per_sect,
                 )
             figs_list.append("coefficient_bar_theory_unc")
+
+        if confidence_level_bar_upscoped is not None:
+            _logger.info("Plotting : Confidence Level error bars")
+            bar_cl = confidence_level_bar_upscoped["confidence_level"]
+            confidence_level_bar_upscoped.pop("confidence_level")
+            zero_sol = 0
+
+            if ci_type in ["hdi", "hdi_mono"]:
+
+                coeff_plt.plot_coeffs_bar_upscoped(
+                    {
+                        name: bound_df.loc[zero_sol, f"{ci_type}_{bar_cl}"]
+                        for name, bound_df in bounds_dict.items()
+                    },
+                    **confidence_level_bar_upscoped,
+                )
+            else:  # Halfwidth ETI
+                coeff_plt.plot_coeffs_bar_upscoped(
+                    {
+                        name: (
+                            -bound_df.loc[zero_sol, f"low{bar_cl}"]
+                            + bound_df.loc[zero_sol, f"high{bar_cl}"]
+                        )
+                        / 2.0
+                        for name, bound_df in bounds_dict.items()
+                    },
+                    **confidence_level_bar_upscoped,
+                )
+            figs_list.append("coefficient_bar_upscoped")
 
         if confidence_level_bar_glob_vs_ind is not None:
             _logger.info("Plotting : Confidence Level error bars")
