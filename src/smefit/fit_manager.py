@@ -80,7 +80,17 @@ class FitManager:
         with open(f"{self.path}/{self.name}/{file}.json", encoding="utf-8") as f:
             results = json.load(f)
 
+        # new smefit patch
         is_single_param = results.get("single_parameter_fits", False)
+        if "IND" in self.name and not is_single_param:
+            is_single_param = True
+
+        # whitening does not exist in smefit_release so we can check if new smefit was used based in this
+        if "whitening_active" in results:
+            new_smefit = True
+        else:
+            new_smefit = False
+
         if is_single_param:
             _logger.warning(
                 f"The fit {self.name} is from single parameter fits, some report features are not available."
@@ -108,7 +118,8 @@ class FitManager:
         # if the posterior is from single parameter fits
         # then each distribution might have a different number of samples
         if is_single_param:
-            del results["single_parameter_fits"]
+            if not new_smefit:
+                del results["single_parameter_fits"]
 
             num_samples = []
             for key in results["samples"].keys():

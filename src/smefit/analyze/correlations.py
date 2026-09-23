@@ -40,6 +40,7 @@ def plot_correlations(
         posterior_df = posterior_df.drop(hide_dofs, axis=1)
 
     # get correlation of free parameters
+    posterior_df = posterior_df[latex_names.index]
     correlations = posterior_df.corr()
 
     # Show only the values higher than a threshold

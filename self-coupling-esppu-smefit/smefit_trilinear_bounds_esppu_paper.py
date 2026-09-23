@@ -14,31 +14,31 @@ rc('text', usetex=True)
 compute_bounds = True
 
 result_dir = pathlib.Path(
-    "/data/theorie/jthoeve/smefit_release/results/esppu_paper")
+    "/data/theorie/jthoeve/physics_projects/new_smefit/results/smefit_esppu_rebuttal")
 
-runs_ind_lin = ["260417_jth_HLLHC_250GEV_LIN_IND_aggressive",
-                "260426_jth_LEP3_250GEV_LIN_IND_aggressive",
-                "260426_jth_FCCee_250GEV_LIN_IND_aggressive",
-                "260417_jth_LCF500_250GEV_LIN_IND_aggressive",
-                "260417_jth_LCF1000_250GEV_LIN_IND_aggressive"]
+runs_ind_lin = ["260921_jth_HLLHC_250GEV_LIN_IND_aggressive",
+                "260921_jth_LEP3_250GEV_LIN_IND_aggressive",
+                "260921_jth_FCCee_250GEV_LIN_IND_aggressive",
+                "260921_jth_LCF500_250GEV_LIN_IND_aggressive",
+                "260921_jth_LCF1000_250GEV_LIN_IND_aggressive"]
 
-runs_ind_quad = ["260417_jth_HLLHC_250GEV_QUAD_IND_aggressive",
-                 "260426_jth_LEP3_250GEV_QUAD_IND_aggressive",
-                 "260426_jth_FCCee_250GEV_QUAD_IND_aggressive",
-                 "260417_jth_LCF500_250GEV_QUAD_IND_aggressive",
-                 "260417_jth_LCF1000_250GEV_QUAD_IND_aggressive"]
+runs_ind_quad = ["260921_jth_HLLHC_250GEV_QUAD_IND_aggressive",
+                 "260921_jth_LEP3_250GEV_QUAD_IND_aggressive",
+                 "260921_jth_FCCee_250GEV_QUAD_IND_aggressive",
+                 "260921_jth_LCF500_250GEV_QUAD_IND_aggressive",
+                 "260921_jth_LCF1000_250GEV_QUAD_IND_aggressive"]
 
-runs_glob_lin = ["260415_jth_HLLHC_250GEV_LIN_GLOB_aggressive",
-                 "260424_jth_LEP3_250GEV_LIN_GLOB_aggressive",
-                 "260424_jth_FCCee_250GEV_LIN_GLOB_aggressive",
-                 "260415_jth_LCF500_250GEV_LIN_GLOB_aggressive",
-                 "260415_jth_LCF1000_250GEV_LIN_GLOB_aggressive", ]
+runs_glob_lin = ["260921_jth_HLLHC_250GEV_LIN_GLOB_aggressive",
+                 "260921_jth_LEP3_250GEV_LIN_GLOB_aggressive",
+                 "260921_jth_FCCee_250GEV_LIN_GLOB_aggressive",
+                 "260921_jth_LCF500_250GEV_LIN_GLOB_aggressive",
+                 "260921_jth_LCF1000_250GEV_LIN_GLOB_aggressive", ]
 
-runs_glob_quad = ["260415_jth_HLLHC_250GEV_QUAD_GLOB_aggressive",
-                  "260424_jth_LEP3_250GEV_QUAD_GLOB_aggressive",
-                  "260424_jth_FCCee_250GEV_QUAD_GLOB_aggressive",
-                  "260415_jth_LCF500_250GEV_QUAD_GLOB_aggressive",
-                  "260415_jth_LCF1000_250GEV_QUAD_GLOB_aggressive"]
+runs_glob_quad = ["260921_jth_HLLHC_250GEV_QUAD_GLOB_aggressive",
+                  "260921_jth_LEP3_250GEV_QUAD_GLOB_aggressive",
+                  "260921_jth_FCCee_250GEV_QUAD_GLOB_aggressive",
+                  "260921_jth_LCF500_250GEV_QUAD_GLOB_aggressive",
+                  "260921_jth_LCF1000_250GEV_QUAD_GLOB_aggressive"]
 
 runs_all = runs_ind_lin + runs_ind_quad + runs_glob_lin + runs_glob_quad
 vSM = 0.24622
@@ -374,4 +374,4 @@ new_ax.axis('off')
 ax.set_title(r"${\rm 68\%\,C.I., \;}\mu_0=250\,{\rm GeV}$", y=1.02)
 
 # plt.tight_layout()
-plt.savefig("smefit_trilinear_bounds_agg_cons_bar.pdf")
+plt.savefig("smefit_trilinear_bounds_agg_cons_bar_rebuttal.pdf")
