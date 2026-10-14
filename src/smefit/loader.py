@@ -90,7 +90,7 @@ class Loader:
         use_multiplicative_prescription,
         rot_to_fit_basis,
         poly_mode,
-        external_coefficients
+        external_coefficients,
     ):
         self._data_folder = self.commondata_path
         self._sys_folder = self.commondata_path / "systypes"
@@ -101,14 +101,13 @@ class Loader:
         self.dataspec = {}
         if poly_mode:
             (
-            self.dataspec["SM_predictions"],
-            self.dataspec["theory_covmat"],
-            self.dataspec["operator_dict"],
-
+                self.dataspec["SM_predictions"],
+                self.dataspec["theory_covmat"],
+                self.dataspec["operator_dict"],
             ) = self.load_theory_poly(
-            order,
-            use_theory_covmat,
-            use_multiplicative_prescription,
+                order,
+                use_theory_covmat,
+                use_multiplicative_prescription,
             )
         else:
             (
@@ -210,11 +209,10 @@ class Loader:
 
         # here return both exp sys and t0 modified sys
         return central_values, df, df_t0, stat_error, luminosity
+
     def load_theory_poly(
-            self,
-            order,
-            use_theory_covmat,
-            use_multiplicative_prescription):
+        self, order, use_theory_covmat, use_multiplicative_prescription
+    ):
         """
         Load theory predictions
 
@@ -226,7 +224,7 @@ class Loader:
                 EFT perturbative order
             use_theory_covmat: bool
                 if True add the theory covariance matrix to the experimental one
-            
+
 
 
         Returns
@@ -235,21 +233,19 @@ class Loader:
                 |SM| predictions
             poly_dict: dict
                 dictionary which labels are the polynomial expression of the correction and the values the contribution to the theory prediction
-   
-            
+
+
         """
         theory_file = self._theory_folder / f"{self.setname}.json"
-        check_file(theory_file) 
+        check_file(theory_file)
         with open(theory_file, encoding="utf-8") as f:
             raw_th_data = json.load(f)
-
-
 
         # save sm prediction at the chosen perturbative order
         sm = np.array(raw_th_data[order]["SM"])
 
-        poly_dict={}
-        for key, value in raw_th_data[order].items(): 
+        poly_dict = {}
+        for key, value in raw_th_data[order].items():
             if "SM" not in key:
                 poly_dict[key] = np.array(value)
                 if use_multiplicative_prescription:
@@ -259,7 +255,7 @@ class Loader:
         if use_theory_covmat:
             th_cov = raw_th_data["theory_cov"]
         return raw_th_data["best_sm"], th_cov, poly_dict
-    
+
     def load_theory(
         self,
         operators_to_keep,
@@ -294,7 +290,7 @@ class Loader:
                 dictionary with |NHO| corrections
             quad_dict: dict
                 dictionary with |HO| corrections, empty if not use_quad
-        
+
         """
         theory_file = self._theory_folder / f"{self.setname}.json"
         check_file(theory_file)
@@ -315,7 +311,6 @@ class Loader:
                 quad_dict[key] = np.array(value)
                 if use_multiplicative_prescription:
                     quad_dict[key] = np.divide(quad_dict[key], sm)
-
 
             # linear terms
             elif "SM" not in key and "*" not in key:
@@ -489,7 +484,6 @@ class Loader:
         """
         return self.dataspec["quad_corrections"]
 
-
     @property
     def operator_dict(self):
         """
@@ -501,7 +495,7 @@ class Loader:
                 dictionary with operators formula and their coefficients
         """
         return self.dataspec["operator_dict"]
-    
+
     @property
     def external_coefficients(self):
         """
@@ -576,8 +570,8 @@ def load_datasets(
     rot_to_fit_basis=None,
     has_uv_couplings=False,
     has_external_chi2=False,
-    poly_mode=False, 
-    external_coefficients={}
+    poly_mode=False,
+    external_coefficients={},
 ):
     """
     Loads experimental data, theory and |SMEFT| corrections into a namedtuple
@@ -608,9 +602,9 @@ def load_datasets(
         poly_mode: bool
             True if running in polymode
         external_coefficients: dictionary
-            coefficients in the theory card that are going to be replaced by runcard expressions   
+            coefficients in the theory card that are going to be replaced by runcard expressions
 
-        """
+    """
 
     exp_data = []
     sm_theory = []
@@ -619,7 +613,7 @@ def load_datasets(
     stat_error = []
     lin_corr_list = []
     quad_corr_list = []
-    operators_dict_list= []
+    operators_dict_list = []
     n_data_exp = []
     lumi_exp = []
     exp_name = []
@@ -641,7 +635,7 @@ def load_datasets(
             use_multiplicative_prescription,
             rot_to_fit_basis,
             poly_mode,
-            external_coefficients
+            external_coefficients,
         )
         exp_name.append(sset)
         n_data_exp.append(dataset.n_data)
@@ -650,12 +644,17 @@ def load_datasets(
         sm_theory.extend(dataset.sm_prediction)
         if poly_mode:
             lin_corr_list.append([dataset.n_data, {}])
-            quad_corr_list.append([dataset.n_data,{}])
-            operators_dict_list.append([list(dataset.operator_dict.keys()), list(dataset.operator_dict.values())])
+            quad_corr_list.append([dataset.n_data, {}])
+            operators_dict_list.append(
+                [
+                    list(dataset.operator_dict.keys()),
+                    list(dataset.operator_dict.values()),
+                ]
+            )
         else:
             lin_corr_list.append([dataset.n_data, dataset.lin_corrections])
             quad_corr_list.append([dataset.n_data, dataset.quad_corrections])
-            operators_dict_list.append([[],[]])
+            operators_dict_list.append([[], []])
         sys_error_t0.append(dataset.sys_error_t0)
         sys_error.append(dataset.sys_error)
         stat_error.append(dataset.stat_error)
@@ -674,7 +673,7 @@ def load_datasets(
     )
     if poly_mode:
         operators_names = sorted(operators_to_keep.keys())
-    if (not(poly_mode)):
+    if not (poly_mode):
         check_missing_oparators(operators_names, operators_to_keep)
 
     if use_quad:
@@ -697,7 +696,6 @@ def load_datasets(
     # At the moment it does not account for correlation between different datasets
     theory_covariance = la.block_diag(*th_cov)
     exp_covmat = covmat_from_systematics(stat_error, sys_error) + theory_covariance
-
     # replicas always generated using the experimental covmat, no t0
     replica = np.random.multivariate_normal(exp_data, exp_covmat)
     if use_t0:
