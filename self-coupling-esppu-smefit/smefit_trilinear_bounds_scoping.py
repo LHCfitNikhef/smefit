@@ -24,8 +24,8 @@ runs_ind_lin = [
     "260721_jth_FCCee_descoped_2IPs_250GEV_LIN_IND_aggressive",
     "260721_jth_LEP3_250GEV_LIN_IND_aggressive",
     "260721_jth_FCCee_upscoped_120lumi_global_250GEV_LIN_IND_aggressive",
-    "260721_jth_FCCee_upscoped_150lumi_top_only_250GEV_LIN_IND_aggressive"
-
+    "260721_jth_FCCee_upscoped_150lumi_top_only_250GEV_LIN_IND_aggressive",
+    "261029_jth_HLLHC_250GEV_LIN_IND"
 ]
 
 runs_glob_lin = [
@@ -37,7 +37,8 @@ runs_glob_lin = [
     "260721_jth_FCCee_descoped_2IPs_250GEV_LIN_GLOB_aggressive",
     "260721_jth_LEP3_250GEV_LIN_GLOB_aggressive",
     "260721_jth_FCCee_upscoped_120lumi_global_250GEV_LIN_GLOB_aggressive",
-    "260721_jth_FCCee_upscoped_150lumi_top_only_250GEV_LIN_GLOB_aggressive"
+    "260721_jth_FCCee_upscoped_150lumi_top_only_250GEV_LIN_GLOB_aggressive",
+    "261029_jth_HLLHC_250GEV_LIN_GLOB"
 ]
 
 runs_all = runs_ind_lin + runs_glob_lin
@@ -59,7 +60,9 @@ def parse_run(run):
     eft_order = "QUAD" if "QUAD" in run else "LIN"
     ind_or_glob = "GLOB" if "GLOB" in run else "IND"
 
-    if "LEP3" in run:
+    if "HLLHC" in run:
+        scope = "HLLHC"
+    elif "LEP3" in run:
         scope = "LEP3"
     elif "descoped_4IPs" in run:
         scope = "FCCee_4IPs"
@@ -138,11 +141,12 @@ def find_bounds(runs, hdi=True):
 
 def build_latex_bounds_table(df, output_path="trilinear_bounds_scoping_table.tex"):
     """Write a grouped LaTeX table of kappa bounds for staged-top/no-top scenarios."""
-    scope_order = ["LEP3", "FCCee", "FCCee_4IPs", "FCCee_2IPs"]
+    scope_order = ["HLLHC", "LEP3", "FCCee", "FCCee_4IPs", "FCCee_2IPs"]
     eft_order = ["LIN", "QUAD"]
     fit_order = ["IND", "GLOB"]
 
     scope_labels = {
+        "HLLHC": r"${\rm HL}\textnormal{-}{\rm LHC}$",
         "LEP3": r"${\rm LEP3}$",
         "FCCee": r"${\rm FCC}\textnormal{-}{\rm ee}$",
         "FCCee_4IPs": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm descoped\;4\,IPs}$",
@@ -232,8 +236,9 @@ labels = {
     ("QUAD", "GLOB"): r"${\rm Marg.}, \mathcal{O}(\Lambda^{-4})$",
 }
 
-scope_order = ["LEP3", "FCCee", "FCCee_4IPs", "FCCee_2IPs", "FCCee_upscoped_120", "FCCee_upscoped_150"]
+scope_order = ["HLLHC", "LEP3", "FCCee", "FCCee_4IPs", "FCCee_2IPs", "FCCee_upscoped_120", "FCCee_upscoped_150"]
 scope_labels = {
+    "HLLHC": r"${\rm HL}\textnormal{-}{\rm LHC}$",
     "LEP3": r"${\rm LEP3}$",
     "FCCee": r"${\rm FCC}\textnormal{-}{\rm ee}$",
     "FCCee_4IPs": r"${\rm FCC}\textnormal{-}{\rm ee}\;{\rm descoped\;4\,IPs}$",
@@ -296,7 +301,7 @@ for i, scope in enumerate(scopes):
 
 # Formatting
 ax.set_yticks(y_base)
-ax.set_xticks(np.arange(0, 0.31, 0.05))
+ax.set_xticks(np.arange(0, 0.36, 0.05))
 ax.set_yticklabels([scope_labels[s] for s in scopes])
 ax.set_ylim(y_base[-1] - 1.8, y_base[0] + 0.6)
 
@@ -317,7 +322,7 @@ ax.tick_params(
 handles, legend_labels = ax.get_legend_handles_labels()
 unique = dict(zip(legend_labels, handles))
 leg1 = ax.legend(unique.values(), unique.keys(), frameon=False, loc='lower left')
-ax.set_xlim(0, 0.3)
+ax.set_xlim(0, 0.35)
 
 
 # Custom legend elements
