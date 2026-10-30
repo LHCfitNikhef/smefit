@@ -1049,6 +1049,7 @@ class CoefficientsPlotter:
         figsize=(15, 20),
         title=None,
         color=None,
+        legend_loc="upper right",
     ):
         """
         Plot error bars at given confidence level
@@ -1067,8 +1068,8 @@ class CoefficientsPlotter:
                 Minimum x-value, 1e-2 by default
             x_max: float, optional
                 Maximum x-value, 500 by default
-            legend_loc: string, optional
-                Legend location, "best" by default
+            legend_loc: string or list, optional
+                Legend location, or one per plot, "upper right" by default
 
         """
         df = pd.DataFrame(error)
@@ -1121,7 +1122,7 @@ class CoefficientsPlotter:
             ax.legend(
                 handles=handles_current,
                 labels=labels_current,
-                loc="upper right",
+                loc=legend_loc[i] if isinstance(legend_loc, list) else legend_loc,
                 frameon=False,
                 ncol=1,
                 fontsize=20,
