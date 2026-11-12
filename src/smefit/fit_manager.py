@@ -92,6 +92,16 @@ class FitManager:
 
         # TODO: support pariwise posteriors
 
+        # extra information not entering the theory predictions:
+        # best fit point, chi2 of the samples, external coefficients (poly_mode)
+        self.best_fit = results.pop("best_fit", None)
+        extra_keys = [
+            key
+            for key in results
+            if self.has_posterior and key not in self.config["coefficients"]
+        ]
+        self.extra_results = pd.DataFrame({key: results.pop(key) for key in extra_keys})
+
         # Be sure columns are sorted, otherwise can't compute theory...
         self.results = pd.DataFrame(results).sort_index(axis=1)
 
@@ -148,7 +158,7 @@ class FitManager:
                     self.results.iloc[rep, :],
                     self.config["use_quad"],
                     self.config.get("use_multiplicative_prescription", False),
-                    self.config.get("poly_mode", False)
+                    self.config.get("poly_mode", False),
                 )
             )
         return np.array(smeft)

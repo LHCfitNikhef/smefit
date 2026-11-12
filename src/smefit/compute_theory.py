@@ -24,6 +24,42 @@ def flatten(quad_mat, axis=0):
     return quad_mat[np.triu_indices(size)]
 
 
+def evaluate_external_coefficients(external_coefficients, coefficients_dict):
+    """Evaluate the runcard expressions of the external coefficients (poly_mode)
+    on a set of samples, outside of jax.
+
+    Expressions are evaluated in order, so later expressions can use earlier
+    external coefficients, mirroring what ``make_predictions`` does.
+
+    Parameters
+    ----------
+    external_coefficients: dict
+        {name: expression} as given in the runcard
+    coefficients_dict: dict
+        {coefficient name: array of values (one per sample)}
+
+    Returns
+    -------
+    dict
+        {name: np.ndarray} with the real values of the external coefficients.
+        Samples where the expression is complex (out of domain) are set to NaN.
+    """
+    point = {
+        k: np.asarray(v, dtype=np.complex128) for k, v in coefficients_dict.items()
+    }
+    n_samples = np.broadcast(*point.values()).shape if point else ()
+    ext_values = {}
+    for name, expr in external_coefficients.items():
+        res = np.broadcast_to(
+            np.asarray(eval(expr, {}, dict(point)), dtype=np.complex128),
+            n_samples,
+        )
+        real = np.where(np.imag(res) != 0.0, np.nan, np.real(res))
+        ext_values[name] = real
+        point[name] = np.asarray(real, dtype=np.complex128)
+    return ext_values
+
+
 def string_to_function(expressions, param_dict):
     """Substitute to the theory card expression the numerical values, keeping also into account external
     defined parameters

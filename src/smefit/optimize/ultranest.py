@@ -2,8 +2,10 @@
 """Fitting the Wilson coefficients with |NS|"""
 import time
 from functools import partial
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 import ultranest
 from rich.style import Style
 from rich.table import Table
@@ -11,6 +13,7 @@ from ultranest import stepsampler
 
 from .. import chi2, log
 from ..coefficients import CoefficientManager
+from ..compute_theory import evaluate_external_coefficients
 from ..loader import load_datasets
 from . import Optimizer
 
@@ -146,7 +149,7 @@ class USOptimizer(Optimizer):
                 config.get("uv_couplings", False),
                 config.get("external_chi2", False),
                 config.get("poly_mode", False),
-                config.get("external_coefficients", {})
+                config.get("external_coefficients", {}),
             )
         elif config.get("external_chi2") is not None:
             loaded_datasets = None
@@ -238,7 +241,7 @@ class USOptimizer(Optimizer):
                 self.use_quad,
                 self.use_multiplicative_prescription,
                 False,
-                self.poly_mode
+                self.poly_mode,
             )
         else:
             chi2_tot = 0
@@ -414,6 +417,26 @@ class USOptimizer(Optimizer):
             for c in self.coefficients.name:
                 values[c].append(self.coefficients[c].value)
 
+        # In single parameter fits the posteriors of different runs are merged
+        # in the same file, so extra (non coefficient) keys would clash.
+        if not self.single_parameter_fits:
+            # posterior of the external coefficients (poly_mode)
+            values.update(self.external_coefficients_values(values))
+
+            # chi2 of each posterior sample
+            values["chi2"] = self.samples_chi2(result["samples"]).tolist()
+
+            # maximum likelihood point found by ultranest
+            values["best_fit"] = self.best_fit_point(result["maximum_likelihood"])
+            log.console.log(
+                f"Best fit point (chi2 = {values['best_fit']['chi2']:.5g}): "
+                + ", ".join(
+                    f"{k} = {v:.4g}"
+                    for k, v in values["best_fit"].items()
+                    if k != "chi2"
+                )
+            )
+
         if self.pairwise_fits:
             posterior_file = (
                 self.results_path
@@ -423,3 +446,82 @@ class USOptimizer(Optimizer):
             posterior_file = self.results_path / "posterior.json"
 
         self.dump_posterior(posterior_file, values)
+
+    def external_coefficients_values(self, coeff_values):
+        """Evaluate the external coefficients (poly_mode) on the given coefficient values.
+
+        Parameters
+        ----------
+        coeff_values : dict
+            {coefficient name: value or list of values}
+
+        Returns
+        -------
+        dict
+            {external coefficient name: list of values (or float)}
+        """
+        if not self.poly_mode or not self.external_coefficients:
+            return {}
+
+        ext_values = evaluate_external_coefficients(
+            self.external_coefficients, coeff_values
+        )
+        out = {}
+        for name, val in ext_values.items():
+            if name in coeff_values:
+                _logger.warning(
+                    f"External coefficient {name} has the same name as a fitted coefficient, "
+                    f"storing it as ext_{name}"
+                )
+                name = f"ext_{name}"
+            out[name] = val.tolist()
+        return out
+
+    def samples_chi2(self, samples, batch_size=1000):
+        """Compute the total chi2 of each sample of free parameters.
+
+        Parameters
+        ----------
+        samples : np.ndarray
+            samples of free parameters, shape (n_samples, n_free_params)
+        batch_size : int
+            number of samples evaluated at once
+
+        Returns
+        -------
+        np.ndarray
+            chi2 = -2 log L for each sample
+        """
+        loglikelihood = jax.jit(jax.vmap(self.gaussian_loglikelihood))
+        logl = [
+            np.asarray(loglikelihood(jnp.asarray(samples[i : i + batch_size])))
+            for i in range(0, samples.shape[0], batch_size)
+        ]
+        return -2.0 * np.concatenate(logl)
+
+    def best_fit_point(self, maximum_likelihood):
+        """Build the best fit point from the ultranest maximum likelihood info.
+
+        Parameters
+        ----------
+        maximum_likelihood : dict
+            ultranest ``result["maximum_likelihood"]``
+
+        Returns
+        -------
+        dict
+            {coefficient: value, external coefficient: value, "chi2": value}
+        """
+        self.coefficients.set_free_parameters(np.asarray(maximum_likelihood["point"]))
+        self.coefficients.set_constraints()
+        best_fit = {
+            c: float(self.coefficients[c].value) for c in self.coefficients.name
+        }
+        best_fit.update(
+            {
+                k: float(v)
+                for k, v in self.external_coefficients_values(best_fit).items()
+            }
+        )
+        best_fit["chi2"] = float(-2.0 * maximum_likelihood["logl"])
+        return best_fit
