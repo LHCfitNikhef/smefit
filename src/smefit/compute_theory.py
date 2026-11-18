@@ -5,7 +5,36 @@ Module for the generation of theory predictions
 """
 import jax.debug
 import jax.numpy as jnp
+import jax.scipy.special as jsp
 import numpy as np
+import scipy.special as sps
+
+
+def _on_real(f):
+    """Special functions don't accept complex input: apply f to the real part."""
+    return lambda *args: f(
+        *[np.real(a) if isinstance(a, np.ndarray) else jnp.real(a) for a in args]
+    )
+
+
+def _functions(xp, special):
+    """Names usable in the runcard expressions of the external coefficients."""
+    funcs = {
+        "sqrt": xp.sqrt,
+        "log": xp.log,
+        "exp": xp.exp,
+        "cos": xp.cos,
+        "sin": xp.sin,
+        "pi": np.pi,
+    }
+    for name in ("erfinv", "ndtri", "gammaincinv"):
+        if hasattr(special, name):  # gammaincinv is missing in older jax versions
+            funcs[name] = _on_real(getattr(special, name))
+    return funcs
+
+
+EXT_FUNCTIONS_JAX = _functions(jnp, jsp)  # used inside the fit (make_predictions)
+EXT_FUNCTIONS_NP = _functions(np, sps)  # used for post-processing
 
 
 def flatten(quad_mat, axis=0):
@@ -51,7 +80,9 @@ def evaluate_external_coefficients(external_coefficients, coefficients_dict):
     ext_values = {}
     for name, expr in external_coefficients.items():
         res = np.broadcast_to(
-            np.asarray(eval(expr, {}, dict(point)), dtype=np.complex128),
+            np.asarray(
+                eval(expr, dict(EXT_FUNCTIONS_NP), dict(point)), dtype=np.complex128
+            ),
             n_samples,
         )
         real = np.where(np.imag(res) != 0.0, np.nan, np.real(res))
@@ -100,10 +131,10 @@ def make_predictions(
 
         # external coefficients could eval to imaginary, meaning they're not in the fitting domain
         out_of_domain = jnp.array(False)
-        # default: "no violation" placeholder, used only to keep safe_theory
-        # well-defined below when ExternalCoefficients is empty (the for loop
-        # is then a no-op and result/dict_point_c would otherwise never be set)
-        result = jnp.array(0.0 + 0.0j, dtype=jnp.complex64)
+        # size of the violation: largest |imaginary part| over all external coefficients.
+        # |.| is needed because the sign of the imaginary part depends on the branch
+        # (e.g. (-x - 0j)**0.5 = -i sqrt(x)), and the penalty must grow with the violation.
+        violation = jnp.array(0.0, dtype=jnp.float32)
 
         for ext, val in dataset.ExternalCoefficients.items():
             # cast operands to complex so sqrt/log/power of negative args
@@ -111,10 +142,13 @@ def make_predictions(
             dict_point_c = {
                 k: jnp.asarray(v, dtype=jnp.complex64) for k, v in dict_point.items()
             }
-            result = jnp.asarray(eval(val, {}, dict_point_c), dtype=jnp.complex64)
+            result = jnp.asarray(
+                eval(val, dict(EXT_FUNCTIONS_JAX), dict_point_c), dtype=jnp.complex64
+            )
             bad_here = jnp.any(jnp.imag(result) != 0.0)
             bad_here = bad_here | jnp.any(jnp.isnan(jnp.real(result)))
             out_of_domain = out_of_domain | bad_here
+            violation = jnp.maximum(violation, jnp.max(jnp.abs(jnp.imag(result))))
             dict_point[ext] = jnp.real(result)
 
         # OperatorsDictionary[][1] are the labels, [][2] are the numerical coefficients
@@ -138,7 +172,7 @@ def make_predictions(
         # theory with a clean, huge-but-finite offset built ONLY from
         # dataset.SMTheory -- never from corrected_theory/summed_corrections,
         # since NaN + anything is still NaN.
-        safe_theory = jnp.array(dataset.SMTheory) + 10 ** (1 + jnp.imag(result))
+        safe_theory = jnp.array(dataset.SMTheory) + 10 ** (1 + violation)
         corrected_theory = jnp.where(out_of_domain, safe_theory, corrected_theory)
 
         return corrected_theory
